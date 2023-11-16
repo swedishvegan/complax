@@ -1,0 +1,99 @@
+
+function { print {r} rows of pascal's triangle } wlabl { Pascal }
+
+start program {
+	
+	while true {
+		
+		output 'Enter a number: '
+		r = input as integer
+		
+		print r rows of pascal's triangle
+		
+		output 'Keep going? '
+		option = input
+		
+		if option == 'Y' or option == 'y' continue
+		if option == 'N' or option == 'n' break
+		
+		output 'Unrecognized command.\n'
+		break
+		
+	}
+	
+}
+
+function { length of {n} } { // Calculates the number of digits in the integer n (array functions are not implemented yet so you cannot simply check the length of a string)
+	
+	if n == 0, return 1
+	
+	len = 0
+	if n < 0 { n = 0 - n, len = 1 }
+	
+	while n > 0 { len = len + 1, n = n / 10 }
+	
+	return len
+	
+}
+
+function { {s} blank spaces } wprec{10, 1} {
+	
+	space = ''
+	while s > 0, { space = space + ' ', s = s - 1 }
+	
+	return space 	
+	
+}
+
+function { {n} choose {k} } wprec {10} returns integer {
+	
+	if n == k or k == 0 return 1
+	
+	return (n-1) choose (k-1) + (n-1) choose k
+	
+}
+
+Pascal { 
+	
+	maximum number length = 0
+	
+	n = 0
+	while n <= r {
+		
+		k = 0
+		while k <= n {
+		
+			len = length of n choose k
+			
+			if len > maximum number length, 
+				maximum number length = len	
+				
+			k = k + 1
+			
+		}
+		
+		n = n + 1
+		
+	}
+	
+	n = 0
+	while n <= r {
+	
+		k = 0
+		while k <= n {
+			
+			nck = n choose k
+			space needed = maximum number length + 1 - length of nck
+			
+			output "nck" + space needed blank spaces
+			
+			k = k + 1
+		
+		}
+		
+		output '\n'
+		n = n + 1
+		
+	}
+
+}

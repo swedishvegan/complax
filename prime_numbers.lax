@@ -1,0 +1,36 @@
+
+function { {n} is prime } wlabl { Is Prime }
+
+start program {
+	
+	output 'Enter a number: '
+	n = input as integer
+	
+	k = 2
+	while k <= n {
+		
+		if k is prime, output '\t' + "k" + '\n'
+		k = k + 1
+	
+	}
+	
+}
+
+Is Prime {
+	
+	if n == 2 return true
+	if n % 2 == 0 return false
+	
+	k = 3
+	sqrt of n = n^0.5 as integer + 1
+	
+	while k < sqrt of n {
+		
+		if n % k == 0 return false
+		k = k + 2
+	
+	}
+	
+	return true
+
+}
