@@ -140,7 +140,7 @@ void Eval::Program::parseArgs(int argc, char** argv) {
     if (error_info.size() > 0) {
 
         error.error = true;
-        error.info = error_info + " Argument format: [input filename] [output_filename] [optional flags (--emit_syntax_tree or --emit_bytecode)]";
+        error.info = error_info + " Argument format: [input filename] [output filename] [optional flags (--emit_syntax_tree or --emit_bytecode)]";
 
     }
 
