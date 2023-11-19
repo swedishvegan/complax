@@ -2,6 +2,9 @@
 function { {n} is prime } wlabl { Is Prime }
 
 start program {
+
+	output '\n --- PRIME NUMBER GENERATOR --- \n\n'
+	output 'This is a simple program that prints out all the prime numbers up to a given number.\n\n'
 	
 	output 'Enter a number: '
 	n = input as integer

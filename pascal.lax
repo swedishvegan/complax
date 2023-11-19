@@ -2,6 +2,9 @@
 function { print {r} rows of pascal's triangle } wlabl { Pascal }
 
 start program {
+
+	output '\n --- PASCAL\'S TRIANGLE GENERATOR ---\n\n'
+	output 'This is a simple program that prints out the first rows of Pascal\'s triangle up to a certain number.\n\n'
 	
 	while true {
 		

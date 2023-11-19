@@ -4,8 +4,9 @@
 ## Table of contents
 1. [Introduction](#pt1)
 2. [Getting started](#pt2)
-    1. [Building the complax library](#pt2.1)
-    2. [Using the Lax compiler and virtual machine](#pt2.2)
+    1. [Pre-compiled binaries](#pt2.1)
+    2. [Building the complax library from source](#pt2.2)
+    3. [Using the Lax compiler and virtual machine](#pt2.3)
 3. [Syntax](#pt3)
     1. [Basics](#pt3.1)
         1. [Hello world](#pt3.1.1)
@@ -100,12 +101,16 @@ Find Next Leap Year {    // implementing the function "next leap year after {yea
 
 ## Getting started <a name="pt2"></a>
 
-### Building the complax library <a name="pt2.1"></a>
+### Pre-compiled binaries <a name="pt2.1"></a>
 
-Building the complax library should be relatively straightforward as long as you have git, CMake, and a compiler that supports the C++11 standard. Here's what you need to do:
+The quickest way to get started with Lax is to simply download one of the pre-compiled releases under the "Releases" tab on this GitHub page. There is a release for Windows (compiled for x86_64), one for MacOS (compiled for Apple's ARM64 chips), and one for Ubuntu (compiled for x86_64). I'm not sure whether the Ubuntu releases would be compatible with other Linux distros, but if not it's easy enough to just compile from source (see the next section).
+
+### Building the complax library from source <a name="pt2.1"></a>
+
+If there is no release for your particular coding environment, or if you're having any issues with the pre-compiled binaries, you can simply build the complax library from source. Building the complax library should be relatively straightforward as long as you have git, CMake, and a compiler that supports the C++11 standard. Here's what you need to do:
 
 1. Navigate into the desired directory and clone the repository: &nbsp; ```git clone https://github.com/swedishvegan/complax.git```
-2. Run the CMake script: &nbsp; ```cmake -S . -B ./[path to build binaries]``` (if you have the CMake GUI program this is fine to use too).
+2. Run the CMake script: &nbsp; ```cmake -S . -B .``` (if you have the CMake GUI program this is fine to use too).
     - __NOTE: If your compiler does not support C++11 by default, you may have to reconfigure your compiler or use a different compiler. In order to specify a compiler, add the argument__ ```-DCMAKE_CXX_COMPILER=[compiler binary name]```  __to the CMake command.__
     - __NOTE: The complax library has been tested and verified to work on the following compilers: GCC, MSVC, Clang. You are free to use a different compiler, but there is a risk that the library will fail to compile.__
 3. Build the project.
@@ -117,7 +122,9 @@ You should see two executables in the folder you chose to build binaries to: ```
 
 ### Using the Lax compiler and virtual machine <a name="pt2.2"></a>
 
-The repository comes with a few sample Lax programs to test out the compiler. To verify that the compiler and VM work, complete the following steps:
+The repository comes with a few sample Lax programs to test out the compiler. If you're not building from source, you'll need to download these programs and move them into the same folder as the binaries.
+
+To verify that the compiler and VM work, complete the following steps:
 
 1. Navigate into the directory with the binaries: &nbsp; ```cd [path to binaries]```
 2. Compile the "hello.lax" file:
