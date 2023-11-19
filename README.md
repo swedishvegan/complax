@@ -491,7 +491,7 @@ Lax comes with all the standard operators and comparators that you're used to fr
 
 The order of operations for expressions depends on the precednece of every relevant operator in the expression. See [Precedence table for all built-in patterns](#pt3.3.4) for a complete list of these precedence values.
 
-#### Type casting and data type logic <a name="pt.3.3.3"></a>
+#### Type casting and data type logic <a name="pt3.3.3"></a>
 
 Lax has a variety of tools to convert between types and query the types of existing variables and expressions.
 
