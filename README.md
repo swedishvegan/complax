@@ -105,6 +105,8 @@ Find Next Leap Year {    // implementing the function "next leap year after {yea
 
 The quickest way to get started with Lax is to simply download one of the pre-compiled releases under the "Releases" tab on this GitHub page. There is a release for Windows (compiled for x86_64), one for MacOS (compiled for Apple's ARM64 chips), and one for Ubuntu (compiled for x86_64). I'm not sure whether the Ubuntu releases would be compatible with other Linux distros, but if not it's easy enough to just compile from source (see the next section).
 
+__NOTE: The source code in the releases zip files is out of date. Please directly clone or download the repository in order to view the source code.__
+
 ### Building the complax library from source <a name="pt2.1"></a>
 
 If there is no release for your particular coding environment, or if you're having any issues with the pre-compiled binaries, you can simply build the complax library from source. Building the complax library should be relatively straightforward as long as you have git, CMake, and a compiler that supports the C++11 standard. Here's what you need to do:
@@ -647,7 +649,7 @@ Below is a table of precedences for every built-in pattern:
 
 ### Functions and pattern matching <a name="pt3.4"></a>
 
-#### Declaring and using function <a name="pt3.4.1"></a>
+#### Declaring and using functions <a name="pt3.4.1"></a>
 
 The best way to illustrate how declaring a function works in Lax is with a simple example:
 
