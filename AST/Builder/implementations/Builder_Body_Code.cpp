@@ -131,11 +131,21 @@ bool AST::Builder_Body_Code::processPattern(ptr_Pattern p) {
 
 		}
 
-		else_dist = 0;
+		if (isElseKW(p->ID)) {
 
-		if (isElseKW(p->ID)) { 
+			if (elses_allowed == 0 || else_dist != 1) {
+
+				error.error = true;
+				error.info = "Illegal 'else' keyword:";
+				error.sources.push_back(p.cast<Printable>());
+
+				finished = true;
+				return false;
+
+			}
 			
 			elses_allowed--;
+			else_dist = 0;
 
 			current_for_table = last_if_for_table.top();
 			last_if_for_table.pop();
@@ -146,6 +156,8 @@ bool AST::Builder_Body_Code::processPattern(ptr_Pattern p) {
 			return true;
 		
 		}
+
+		else_dist = 0;
 
 		if (p->ID == PatternID::Keyword_if) { elses_allowed++; last_if_for_table.push(current_for_table); }
 

@@ -17,12 +17,10 @@ using integer = int64_t;
 using decimal = double;
 using string = instruction;
 
-union stack_element { integer i; decimal d; bool b; string s; };
-
 char* heap = nullptr;
 pointer hp = 0;
 
-stack_element* _stack = nullptr;
+instruction* _stack = nullptr;
 pointer _sp = 0;
 
 instruction* _program = nullptr;
@@ -75,10 +73,10 @@ bool init(std::string filename) {
 
         }
 
-        _stack = new stack_element[stack_size];
+        _stack = new instruction[stack_size];
         _sp = stack_data_size;
 
-        input_file.read((char*)_stack, stack_data_size * sizeof(stack_element));
+        input_file.read((char*)_stack, stack_data_size * sizeof(instruction));
         input_file >> instructions_size;
 
         _program = new instruction[instructions_size];
@@ -221,7 +219,7 @@ int main(int argc, char** argv) {
 
     pointer ip = 0, sp = 0;
 
-    stack_element* stack = nullptr;
+    instruction* stack = nullptr;
     instruction* program = nullptr;
 
 #define stack_element(i, T) *(T*)(stack + i)    

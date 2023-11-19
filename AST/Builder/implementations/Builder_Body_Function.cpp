@@ -30,8 +30,8 @@ AST_DECL_SUCCESSORS(Builder_Body_Function) {
 		//AST_SUCC_ALLOW(Keyword_for);
 		AST_SUCC_ALLOW(Keyword_while);
 
-		AST_SUCC_ALLOW(Keyword_if);
-		if (elses_allowed > 0 && else_dist == 1) { AST_SUCC_ALLOW(Keyword_else); AST_SUCC_ALLOW(Keyword_else_comma); AST_SUCC_ALLOW(Keyword_else_colon); }
+		AST_SUCC_ALLOW(Keyword_if); AST_SUCC_ALLOW(Keyword_else); AST_SUCC_ALLOW(Keyword_else_comma); AST_SUCC_ALLOW(Keyword_else_colon);
+		//if (elses_allowed > 0 && else_dist == 1) {  }
 
 		AST_SUCC_ALLOW(Keyword_return);
 		

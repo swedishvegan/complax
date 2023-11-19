@@ -920,7 +920,11 @@ void* Eval::NodeEvaluator::getRestrictions(void* vsym) {
 
 			error.error = true;
 			error.info = "Pattern match cannot refer to itself within its restrictions, either directly or indirectly.";
-			error.sources.push_back(new PrintableString("Problematic pattern match:\n" + ((AST::Builder_Header*)sym->header)->print(2, false)));
+
+			auto sym_header = (AST::Builder_Header*)sym->header;
+			sym_header->single_line = true;
+
+			error.sources.push_back(new PrintableString("Problematic pattern match:\n" + sym_header->print(2, false)));
 
 			return nullptr;
 

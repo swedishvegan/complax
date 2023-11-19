@@ -84,7 +84,7 @@ void AST::Builder::checkForFinalErrors() {
 
 	}
 
-	if (ID != BuilderID::GlobalScopeBuilder && ID != BuilderID::Builder_Body_Function && ID != BuilderID::Builder_Body_Structure) return;
+	if (ID != BuilderID::Builder_Body_Function && ID != BuilderID::Builder_Body_Structure) return;
 
 	auto syms = SymbolTableLinker{ table };
 	auto it = syms.iterate(SymbolID::Variable);
