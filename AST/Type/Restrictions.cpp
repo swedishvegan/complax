@@ -30,12 +30,12 @@ string AST::Restrictions::toString(int alignment) {
 
 	for (auto& rest : rest_map) {
 
-		s += indent(alignment + 1) + "Argument # " + std::to_string(rest.first) + " \n";
-		s += PrintableTypeList(rest.second->tl).print(alignment + 2);
+		s += indent(alignment + 1) + "Argument # " + std::to_string(rest.first) + ":\n";
+		s += Type::fromTypeList(rest.second->tl).print(alignment + 2, false);
 
 	}
 
-	return s.substr(0, s.size() - 1);
+	return s;
 
 }
 

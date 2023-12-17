@@ -64,7 +64,7 @@ namespace AST {
 
     struct Scanner_Expression : public Scanner {
 
-        Scanner_Expression(Code::Loader& loader, int start, int end, int cur_best_start, SymbolTableLinker symbols);
+        Scanner_Expression(Code::Loader& loader, int start, int end, int cur_best_start, SymbolTableLinker symbols, bool is_top_level = true);
         
         static ptr_Symbol banned_symbol; // Symbol that is not allowed to appear in the winner expression
 
@@ -83,6 +83,7 @@ namespace AST {
         int start, end;
         NodeList candidates;       // List of all possible valid expressions; chooses the longest one out of the list
         SymbolTableLinker symbols; // Symbols that the Expression looks at when looking for symbol matches
+        bool is_top_level;         // Indicates whether the Scanner was created by another Scanner
 
         static bool requirements[];       // Types of Nodes that will be accepted as a winner
 
@@ -94,6 +95,8 @@ namespace AST {
         // Everything from here to validateExpression() is a helper function for generateSuccessors()
 
         void generateExpressionSuccessors(ExpressionStack&, ValidatorStack&, int start, NodeList& successors);
+
+        void generateArrayInitializerSuccessors(ExpressionStack&, ValidatorStack&, int start, NodeList& successors);
 
         void generateLiteralSuccessors(ExpressionStack&, ValidatorStack&, int start, NodeList& successors);
 

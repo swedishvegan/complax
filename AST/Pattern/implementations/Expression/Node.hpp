@@ -38,6 +38,7 @@ namespace AST {
 		None,
 		
 		Expression, // Parenthetical expression
+		ArrayInitializer, // Bracket-enclosed list of expressions
 		Literal, 
 		Variable, 
 		Filler, 
@@ -75,6 +76,8 @@ namespace AST {
 
 	struct EmptyNode : public Node { EmptyNode(int start); string toString(int); }; // Used to flush a pending pattern match
 
+	using ptr_EmptyNode = ptr<EmptyNode>;
+
 	struct ExpressionNode : public Node {
 
 		ptr_Expression expression;
@@ -84,6 +87,20 @@ namespace AST {
 		string toString(int);
 
 	};
+
+	using ptr_ExpressionNode = ptr<ExpressionNode>;
+
+	struct ArrayInitializerNode : public Node {
+
+		managed_vec<ptr_Expression> components;
+
+		ArrayInitializerNode();
+
+		string toString(int);
+
+	};
+
+	using ptr_ArrayInitializerNode = ptr<ArrayInitializerNode>;
 
 	struct LiteralNode : public Node {
 

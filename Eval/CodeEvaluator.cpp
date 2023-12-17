@@ -35,7 +35,7 @@ Eval::CodeEvaluator::CodeEvaluator(EvaluatorProgress* progress) : progress(progr
     bool init_success = progress->code_piece ? initFromCodePiece() : initFromCodeBody();
     if (!init_success) return;
 
-    auto arg_typelist_ID = AST::Type(progress->argument_types).ID;
+    auto arg_typelist_ID = AST::Type::fromTypeList(progress->argument_types).ID;
     
     if (progress->parent) progress->parent->needs_load = false;
     
@@ -116,7 +116,7 @@ bool Eval::CodeEvaluator::initFromCodeBody() {
 
         auto inst_info = 
             header_sym
-                ? &header_sym->instantiations[AST::Type(progress->argument_types).ID]
+                ? &header_sym->instantiations[AST::Type::fromTypeList(progress->argument_types).ID]
                 : nullptr
             ;
 
@@ -171,6 +171,14 @@ void Eval::CodeEvaluator::evaluateReturnType() {
 
     if (evaluator.error.error) error = evaluator.error;
 
+    else if (!AST::Type(evaluator.eval_type).isConcrete()) {
+
+        error.error = true;
+        error.info = "Return type must be concrete.";
+        error.sources.push_back(new PrintableString("Source expression:\n" + return_exp->print(2, false)));
+
+    }
+
     else if (evaluator.eval_type == AST::Type::Unknown) finished = true;
 
     else eval_type = evaluator.eval_type;
@@ -200,11 +208,24 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
         Evaluator::cur_expression_info.lh_access_mode = ExpressionCompileInfo::LH_AccessMode::None;
         Evaluator::cur_expression_info.cur_progress = progress;
 
+        Evaluator::cur_expression_info.stack_offset = progress->stack_offset;
+        Evaluator::cur_expression_info.lh_index = progress->stack_offset + 2;
+
         NodeEvaluator evaluator(pm, true);
         
         if (evaluator.error.error) { error = evaluator.error; return; }
 
         if (evaluator.eval_type == AST::Type::Unknown) { finished = true; return; }
+
+        if (!AST::Type(evaluator.eval_type).isConcrete()) {
+
+            error.error = true;
+            error.info = "Pattern match type must be concrete.";
+            error.sources.push_back(new PrintableString("Source expression:\n" + pm->print(2, false)));
+
+            return;
+
+        }
 
         progress->bytecode->mergeWith(*evaluator.bytecode);
 
@@ -221,18 +242,53 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
 
         auto cast = (AST::CodePiece_Assignment*)piece;
 
-        auto lh_sym = (cast->LH_sym != nullptr) ? cast->LH_sym : ((cast->LH_node->ID == AST::NodeID::Variable) ? ((AST::VariableNode*)cast->LH_node)->sym() : nullptr);
+        auto lh_sym = 
+            (cast->LH_declare != nullptr) 
+                ? cast->LH_declare
+                : (
+                    (cast->LH_assign->node->ID == AST::NodeID::Variable) 
+                        ? ((AST::VariableNode*)cast->LH_assign->node())->sym() 
+                        : nullptr
+                )
+            ;
+
+        auto lh_exp = lh_sym ? nullptr : cast->LH_assign;
+
+        int soffset = lh_exp ? 2 : 0;
+
+        Evaluator::cur_expression_info.cur_progress = progress;
+        Evaluator::cur_expression_info.lh_access_mode = Eval::ExpressionCompileInfo::LH_AccessMode::Relative;
+
+        if (lh_exp && !progress->lh_evaluated) {
+
+            Evaluator::cur_expression_info.stack_offset = progress->stack_offset;
+            Evaluator::cur_expression_info.lh_index = progress->stack_offset + 2;
+
+            NodeEvaluator evaluator(lh_exp, true, true);
+
+            if (evaluator.error.error) { error = evaluator.error; return; }
+
+            if (evaluator.eval_type == AST::Type::Unknown) { finished = true; return; }
+
+            progress->bytecode->mergeWith(*evaluator.bytecode);
+            progress->lh_evaluated = true;
+            progress->lh_type = evaluator.eval_type;
+
+        }
+        
         auto rh = cast->RH;
 
-        Evaluator::cur_expression_info.lh_access_mode =
+        if (lh_sym) Evaluator::cur_expression_info.lh_access_mode =
             lh_sym->is_global
                 ? Eval::ExpressionCompileInfo::LH_AccessMode::Direct
                 : Eval::ExpressionCompileInfo::LH_AccessMode::Relative
             ;
+        else Evaluator::cur_expression_info.lh_access_mode = Eval::ExpressionCompileInfo::LH_AccessMode::Heap;
+        
+        Evaluator::cur_expression_info.stack_offset = progress->stack_offset + soffset;
 
-        Evaluator::cur_expression_info.cur_progress = progress;
-
-        Evaluator::cur_expression_info.lh_index = lh_sym->is_global ? Evaluator::program_data.getStackPosition(lh_sym) : _local_var_offset(lh_sym);
+        if (lh_sym) Evaluator::cur_expression_info.lh_index = lh_sym->is_global ? Evaluator::program_data.getStackPosition(lh_sym) : _local_var_offset(lh_sym);
+        else Evaluator::cur_expression_info.lh_index = progress->stack_offset + 4;
 
         NodeEvaluator evaluator(rh, true);
 
@@ -241,53 +297,66 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
         if (evaluator.eval_type == AST::Type::Unknown) { finished = true; return; }
 
         if (evaluator.eval_type == AST::Type::Nothing) {
-
+            
             error.error = true;
-            error.info = "Variable cannot be assigned an expression with no type.";
+            error.info = 
+                inside_declaration
+                    ? "Variable cannot be initialized to an expression with no type."
+                    : "Variable cannot be assigned an expression with no type."
+                ;
+            
             error.sources.push_back(new PrintableString("Problematic expression:\n" + rh->print(2, false)));
 
             return;
 
         }
+
+        if (!AST::Type(evaluator.eval_type).isConcrete()) {
+
+            error.error = true;
+            error.info = "Variable assignment type must be concrete.";
+            error.sources.push_back(new PrintableString("Source expression:\n" + rh->print(2, false)));
+
+            return;
+
+        }
         
-        if (lh_sym != nullptr) {
+        auto prev_type = lh_sym ? lh_sym->evaluator.eval_type : progress->lh_type;
+        auto new_type = evaluator.eval_type;
 
-            auto prev_type = lh_sym->evaluator.eval_type;
-            auto new_type = evaluator.eval_type;
+        if (inside_declaration) {
 
-            if (inside_declaration) {
+            progress->variable_types.push_back(new_type);
 
-                progress->variable_types.push_back(new_type);
+            lh_sym->evaluator.eval_type = new_type;
+            lh_sym->evaluator.is_constant = false;
+        
+        }
 
-                lh_sym->evaluator.eval_type = new_type;
-                lh_sym->evaluator.is_constant = false;
-            
-            }
+        else if (new_type != prev_type) {
 
-            else if (new_type != prev_type) {
+            error.error = true;
+            error.info = "Type mismatch in variable assignment.";
 
-                error.error = true;
-                error.info = "Type mismatch in variable assignment.";
+            ptr_Printable problem_exp = new PrintableString("Problematic expression:\n" + rh->print(2, false));
 
-                ptr_Printable problem_exp = new PrintableString("Problematic expression:\n" + rh->print(2, false));
+            auto problem_type_string = "Expression type:\n" + AST::Type(new_type).print(2, false);
+            ptr_Printable problem_type = new PrintableString(problem_type_string);
 
-                auto problem_type_string = "Expression type:\n" + AST::PrintableTypeList::TypeID_toString(new_type, 2);
-                ptr_Printable problem_type = new PrintableString(problem_type_string.substr(0, problem_type_string.size() - 1));
+            auto expected_type_string = "Expected type:\n" + AST::Type(prev_type).print(2, false);
+            ptr_Printable expected_type = new PrintableString(expected_type_string);
 
-                auto expected_type_string = "Expected type:\n" + AST::PrintableTypeList::TypeID_toString(prev_type, 2);
-                ptr_Printable expected_type = new PrintableString(expected_type_string.substr(0, expected_type_string.size() - 1));
+            error.sources.push_back(problem_exp);
+            error.sources.push_back(problem_type);
+            error.sources.push_back(expected_type);
 
-                error.sources.push_back(problem_exp);
-                error.sources.push_back(problem_type);
-                error.sources.push_back(expected_type);
-
-                return;
-
-            }
+            return;
 
         }
 
         progress->bytecode->mergeWith(*evaluator.bytecode);
+        if (lh_exp) progress->bytecode->addInstruction(inst::movlh, progress->stack_offset + 4, progress->index_offset, progress->base_offset);
+        progress->lh_evaluated = false;
 
     }
 
@@ -467,8 +536,8 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
 
             ptr_Printable problem_exp = new PrintableString("Problematic expression:\n" + exp->print(2, false));
 
-            auto problem_type_string = "Expression type:\n" + AST::PrintableTypeList::TypeID_toString(evaluator.eval_type, 2);
-            ptr_Printable problem_type = new PrintableString(problem_type_string.substr(0, problem_type_string.size() - 1));
+            auto problem_type_string = "Expression type:\n" + AST::Type(evaluator.eval_type).print(2, false);
+            ptr_Printable problem_type = new PrintableString(problem_type_string);
 
             error.sources.push_back(problem_exp);
             error.sources.push_back(problem_type);
@@ -508,8 +577,8 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
 
             ptr_Printable problem_exp = new PrintableString("Problematic expression:\n" + exp->print(2, false));
 
-            auto problem_type_string = "Expression type:\n" + AST::PrintableTypeList::TypeID_toString(evaluator.eval_type, 2);
-            ptr_Printable problem_type = new PrintableString(problem_type_string.substr(0, problem_type_string.size() - 1));
+            auto problem_type_string = "Expression type:\n" + AST::Type(evaluator.eval_type).print(2, false);
+            ptr_Printable problem_type = new PrintableString(problem_type_string);
 
             error.sources.push_back(problem_exp);
             error.sources.push_back(problem_type);
@@ -542,6 +611,16 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
 
         if (evaluator.eval_type == AST::Type::Unknown) { finished = true; return; }
 
+        if (!AST::Type(evaluator.eval_type).isConcrete()) {
+
+            error.error = true;
+            error.info = "Return expression type must be concrete.";
+            error.sources.push_back(new PrintableString("Source expression:\n" + exp->print(2, false)));
+
+            return;
+
+        }
+
         if (eval_type == AST::Type::Anything || eval_type == evaluator.eval_type) { 
             
             eval_type = evaluator.eval_type;
@@ -556,11 +635,11 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
 
             ptr_Printable problem_exp = new PrintableString("Problematic expression:\n" + exp->print(2, false));
 
-            auto problem_type_string = "Expression type:\n" + AST::PrintableTypeList::TypeID_toString(evaluator.eval_type, 2);
-            ptr_Printable problem_type = new PrintableString(problem_type_string.substr(0, problem_type_string.size() - 1));
+            auto problem_type_string = "Expression type:\n" + AST::Type(evaluator.eval_type).print(2, false);
+            ptr_Printable problem_type = new PrintableString(problem_type_string);
 
-            auto expected_type_string = "Expected type:\n" + AST::PrintableTypeList::TypeID_toString(eval_type, 2);
-            ptr_Printable expected_type = new PrintableString(expected_type_string.substr(0, expected_type_string.size() - 1));
+            auto expected_type_string = "Expected type:\n" + AST::Type(eval_type).print(2, false);
+            ptr_Printable expected_type = new PrintableString(expected_type_string);
 
             error.sources.push_back(problem_exp);
             error.sources.push_back(problem_type);

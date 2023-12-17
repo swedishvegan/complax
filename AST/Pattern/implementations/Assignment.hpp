@@ -7,7 +7,7 @@ namespace AST {
 
     struct Assignment : public Pattern {
 
-        ptr_Node node;
+        ptr_Expression expression;
 
         Assignment();
 

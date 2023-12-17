@@ -119,7 +119,9 @@ std::string Eval::ProgramDataTable::toString(int alignment) {
             if (st.AST_Type == AST::Type::Integer) s += std::to_string(d);
             else if (st.AST_Type == AST::Type::Decimal) s += std::to_string(*(double*)(&d));
             else if (st.AST_Type == AST::Type::Bool) s += std::to_string(*(bool*)(&d));
-            else s += "(string literal w/ index = " + std::to_string(d) + ")";
+            else if (st.AST_Type == AST::Type::Bool) s += "Ascii (" + std::to_string((int)*(unsigned char*)(&d));
+            else if (st.AST_Type == AST::Type::String) s += "(string literal w/ index = " + std::to_string(d) + ")";
+            else s += "(uninitialized heap object)";
 
         }
         

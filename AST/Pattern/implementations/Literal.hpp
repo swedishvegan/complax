@@ -13,6 +13,7 @@ namespace AST {
 
 		managed_string info;
 		TypeID type = Type::Unknown;
+		bool is_keyword = false;
 
 		Literal();
 

@@ -1,0 +1,233 @@
+
+/********************************************************************\
+
+   Here you will find all the global variables and functions which 
+are needed to run the tic-tac-toe algorithm and handle the game logic.
+
+    Please note that the algorithm is not written to be efficient.
+            It is merely a demonstration of Lax's syntax.
+
+\********************************************************************/
+
+e = 0
+O = -1 
+X = 1
+
+board = integer array
+
+guaranteed loss = -3
+guaranteed win = -2
+guaranteed tie = -1
+
+next move = integer  // could be -3, -2 or -1 to indicate guaranteed outcome
+                     // otherwise, it is an index into the board array
+
+function { game board } wlabl { Print Game Board }
+
+function { board is full } { 
+
+    k = 0
+    while k < 9 {
+        
+        if board[k] == e return false
+        k = k + 1
+
+    }
+
+    return true
+
+}
+
+function { {side} won the game } { // Checks whether the side passed as an argument won the game
+
+    k = 0
+    while k < 3 {
+
+        if board[3*k] == side and board[3*k+1] == side and board[3*k+2] == side, return true
+        if board[k] == side and board[k+3] == side and board[k+6] == side, return true
+
+        k = k + 1
+
+    }
+
+    if board[0] == side and board[4] == side and board[8] == side, return true
+    if board[2] == side and board[4] == side and board[6] == side, return true
+
+    return false
+
+}
+
+function { current game winner } { // Either returns X, O, or e (meaning nobody has won yet)
+
+    if X won the game, return X
+    if O won the game, return O
+
+    return e
+
+}
+
+function { {side}'s opponent } { return 0-side }
+
+function { game winner if it were {side}'s turn } { // Tells you which side would hypothetically 
+                                                    // win the game from this stage if both sides
+                                                    // played perfectly, by evaluating every
+                                                    // possible outcome on the game tree
+
+    cur winner = current game winner
+
+    if cur winner == side { next move = guaranteed win, return side }
+    if cur winner == side's opponent { next move = guaranteed loss, return side's opponent }
+
+    if board is full { next move = guaranteed tie, return e }
+
+    best outcome = side's opponent
+    necessary move to guarantee best outcome = -1
+
+    k = 0
+    while k < 9 {
+
+        if board[k] != e { k = k + 1  continue }
+
+        board[k] = side
+
+        hypothetical move = k
+        hypothetical winner = game winner if it were side's opponent's turn
+
+        if hypothetical winner == side or best outcome == side's opponent {
+
+            best outcome = hypothetical winner
+            necessary move to guarantee best outcome = hypothetical move
+
+        }
+
+        board[k] = e
+        if best outcome == side, break
+
+        k = k + 1
+
+    }
+
+    next move = necessary move to guarantee best outcome
+    return best outcome
+
+}
+
+function { {space}/xo } wprec{5} { // Converts a board position to a string
+
+    if space == X, return "X"
+    if space == O, return "O"
+
+    return " "
+
+}
+
+Print Game Board { // Converts the game board to a string
+
+    return
+
+    "| " + board[0]/xo + " | " + board[1]/xo + " | " + board[2]/xo + " |\n" + 
+    "|---|---|---|\n" + 
+    "| " + board[3]/xo + " | " + board[4]/xo + " | " + board[5]/xo + " |\n" + 
+    "|---|---|---|\n" +
+    "| " + board[6]/xo + " | " + board[7]/xo + " | " + board[8]/xo + " |\n"
+
+}
+
+start program {
+
+    board = integer array of length 9
+
+    output "\n --- TIC TAC TOE CHAMPION ---\n\n"
+    output "Please pick a side (X/O): "
+
+    user input = input
+    user = integer
+
+    if user input == "X" user = X
+    else if user input == "O" user = O
+    else { output "Your input was illegal so you will be forced to play X as punishment.\n", user = X }
+
+    output "Do you want to go first or second? "
+
+    first or second = input
+    user's turn = boolean
+
+    if first or second == "first" user's turn = true
+    else if first or second == "second" user's turn = false
+    else { output "Your input was illegal so you will be forced to play second as punishment.\n", user's turn = false }
+
+    output "\n"
+
+    while true {
+
+        if user's turn {
+
+            move is valid = false
+
+            row = 0
+            col = 0
+            board index = 0
+
+            while not move is valid {
+
+                row = 0
+                col = 0
+
+                while row < 1 or row > 3 {
+
+                    output "Enter row (1-3): "
+                    row = input as integer
+
+                }
+
+                while col < 1 or col > 3 {
+
+                    output "Enter col (1-3): "
+                    col = input as integer
+
+                }
+
+                row = row - 1, col = col - 1
+
+                board index = 3 * row + col
+
+                if board[board index] == e, move is valid = true
+                else, output "Illegal move, try again...\n"
+
+            }
+
+            board[board index] = user
+            user's turn = false
+
+            output "\nYour move:\n\n"
+            output game board
+            output "\n"
+
+        }
+        
+        winner = game winner if it were user's opponent's turn
+
+        if next move >= 0 {
+
+            board[next move] = user's opponent
+            user's turn = true
+
+            output "\nOpponent's move:\n\n"
+            output game board
+            output "\n"
+
+        }
+
+        if next move < 0 or current game winner != e or board is full {
+
+            if winner == user output "You won (this should be impossible and you should never see this message)\n\n"
+            else if winner == user's opponent output "You lost\n\n"
+            else output "It was a tie\n\n"
+
+            break
+
+        }
+
+    }
+
+}

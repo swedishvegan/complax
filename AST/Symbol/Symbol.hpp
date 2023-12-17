@@ -130,6 +130,8 @@ namespace AST {
 
 		void* return_expression = nullptr; // Expression object
 
+		bool is_assignable = false; // Whether the Symbol can be used as the left-hand of an assignment
+
 		struct InstantiationInfo { 
 			
 			TypeID return_type = Type::Anything;

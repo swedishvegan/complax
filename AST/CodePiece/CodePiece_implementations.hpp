@@ -20,9 +20,9 @@ namespace AST {
 
 	struct CodePiece_Assignment : public CodePiece {
 
-		Node* LH_node = nullptr; // LH will be either a Node or Symbol, but not both
-		Symbol* LH_sym = nullptr;
-
+		Expression* LH_assign = nullptr; // Either a VariableNode, StructureMemberNode, or PatternMatchNode
+		Symbol* LH_declare = nullptr;    // LH symbol for when the assignment is part of a declaration
+		
 		Expression* RH = nullptr;
 
 		CodePiece_Assignment();

@@ -49,6 +49,23 @@ int _inst_lengths[] = {
     -1,
     2,
     2,
+    3,
+    3,
+    2,
+    2,
+    2,
+    3,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    4,
+    2,
+    2,
+    3,
     2,
     2,
     2,
@@ -64,7 +81,14 @@ int _inst_lengths[] = {
     2,
     2,
     2,
-    2,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
+    3,
     3,
     3,
     3,
@@ -120,12 +144,25 @@ const char* _inst_names[] = {
     "tmrr  ",
     "rand  ",
     "gc    ",
+    "halloc",
+    "hinit ",
+    "lhcpy ",
+    "hhcpy ",
     "movll ",
     "movpl ",
     "movxl ",
+    "movhl ",
     "movlx ",
     "movpx ",
     "movxx ",
+    "movhx ",
+    "movlh ",
+    "movph ",
+    "movxh ",
+    "movhh ",
+    "strlen",
+    "arrlen",
+    "arrcat",
     "castid",
     "castdi",
     "castib",
@@ -138,10 +175,15 @@ const char* _inst_names[] = {
     "castds",
     "castsb",
     "castbs",
+    "castas",
+    "castai",
+    "castia",
     "addi  ",
     "addd  ",
+    "adda  ",
     "subi  ",
     "subd  ",
+    "suba  ",
     "muli  ",
     "muld  ",
     "divi  ",
@@ -157,17 +199,23 @@ const char* _inst_names[] = {
     "eqi   ",
     "eqd   ",
     "eqb   ",
+    "eqa   ",
     "neqi  ",
     "neqd  ",
     "neqb  ",
+    "neqa  ",
     "gti   ",
     "gtd   ",
+    "gta   ",
     "gtei  ",
     "gted  ",
+    "gtea  ",
     "lti   ",
     "ltd   ",
+    "lta   ",
     "ltei  ",
     "lted  ",
+    "ltea  ",
     "eqs   ",
     "neqs  ",
     "gts   ",
@@ -227,13 +275,23 @@ void Eval::BytecodeBlock::processInstruction() {
     auto this_len = _inst_length(in);
 
     if (in == inst::jc) { _check_arg(2); return; }
-    if (in == inst::call) { _check_arg(1); return; }
     if (_is_between(inst::inp, inst::out)) { _check_arg(1); return; }
     if (in == inst::tmrr) { _check_arg(1); return; }
-    if (in == inst::movll) { _check_arg(1); }
-    if (_is_between(inst::movll, inst::movxl)) { _check_arg(2); return; }
+    if (in == inst::rand) { _check_arg(1); return; }
+    if (_is_between(inst::halloc, inst::hinit)) { _check_arg(1); _check_arg(2); return; }
+    if (_is_between(inst::lhcpy, inst::hhcpy)) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
+    if (in == inst::movll) { _check_arg(1); _check_arg(2); return; }
+    if (in == inst::movpl) { _check_arg(2); return; }
+    if (in == inst::movxl) { _check_arg(2); return; }
+    if (in == inst::movhl) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
     if (in == inst::movlx) { _check_arg(1); return; }
-    if (_is_between(inst::castid, inst::castbs)) { _check_arg(1); _check_arg(2); return; }
+    if (in == inst::movhx) { _check_arg(1); _check_arg(2); return; }
+    if (in == inst::movlh) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
+    if (in == inst::movph) { _check_arg(2); _check_arg(3); return; }
+    if (in == inst::movxh) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
+    if (in == inst::movhh) { _check_arg(1); _check_arg(2); _check_arg(3); _check_arg(4); return; }
+    if (in == inst::arrlen) { _check_arg(1); _check_arg(2); return; }
+    if (_is_between(inst::castid, inst::castia)) { _check_arg(1); _check_arg(2); return; }
     if (_is_between(inst::addi, inst::ltes)) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
     if (_is_between(inst::noti, inst::notb)) { _check_arg(1); _check_arg(2); }
 

@@ -53,7 +53,7 @@ string AST::CodePiece::toString(int alignment) {
 
 		string s = "Assignment:\n";
 		s += indent(alignment + 1) + "LH:\n";
-		s += (cast->LH_node == nullptr) ? (indent(alignment + 2) + cast->LH_sym->oneLineDescription().c_str() + "\n") : cast->LH_node->print(alignment + 2);
+		s += (cast->LH_assign == nullptr) ? (indent(alignment + 2) + cast->LH_declare->oneLineDescription().c_str() + "\n") : cast->LH_assign->node->print(alignment + 2);
 		s += indent(alignment + 1) + "RH:\n";
 		s += cast->RH->node->print(alignment + 2, false);
 
@@ -311,7 +311,7 @@ AST::ptr_CodePiece AST::CodePieceBuilder::getNewCodePiece(ptr_Pattern p, ptr_Cod
 		decl->new_var = sym();
 
 		ptr_CodePiece_Assignment ass = new CodePiece_Assignment();
-		ass->LH_sym = sym();
+		ass->LH_declare = sym();
 		
 		decl->assignment = ass;
 		ass->owner = decl.cast<CodePiece>();
@@ -322,10 +322,10 @@ AST::ptr_CodePiece AST::CodePieceBuilder::getNewCodePiece(ptr_Pattern p, ptr_Cod
 
 	else if (ptype == PatternID::Assignment) {
 
-		auto LH = p.cast<Assignment>()->node;
+		auto LH = p.cast<Assignment>()->expression;
 
 		ptr_CodePiece_Assignment ass = new CodePiece_Assignment();
-		ass->LH_node = LH();
+		ass->LH_assign = LH();
 
 		new_piece = ass.cast<CodePiece>();
 

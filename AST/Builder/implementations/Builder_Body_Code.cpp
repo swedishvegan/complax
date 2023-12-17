@@ -46,10 +46,10 @@ bool AST::Builder_Body_Code::processPattern(ptr_Pattern p) {
 
 			auto exp = p.cast<Expression>();
 			auto node = exp->node;
-			
-			require_assignment = node->ID == NodeID::Variable || node->ID == NodeID::StructureMember;
 
-			if (require_assignment) if (!verifyAssignment(node->end)) {
+			auto verified = verifyAssignment(node->end);
+
+			if (node->ID == NodeID::Variable && !verified) {
 
 				allow_expression = false;
 				require_assignment = false;
@@ -57,6 +57,8 @@ bool AST::Builder_Body_Code::processPattern(ptr_Pattern p) {
 				return false;
 
 			}
+			
+			require_assignment = verified;
 
 			if (require_assignment) Scanner_Assignment::expression = exp;
 

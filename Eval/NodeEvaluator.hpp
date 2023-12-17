@@ -40,9 +40,9 @@ namespace Eval {
 
 		// Note: Many function arguments are void* in order to avoid mutual inclusions
 
-		NodeEvaluator(void* expression, bool needs_val); // If needs_val = false, the NodeEvaluator will only evaluate the type of the expression
+		NodeEvaluator(void* expression, bool needs_val, bool is_lh = false); // If needs_val = false, the NodeEvaluator will only evaluate the type of the expression
 
-		NodeEvaluator(void* node, void* parent_expression, bool needs_val);
+		NodeEvaluator(void* node, void* parent_expression, bool needs_val, bool is_lh = false);
 
 		string toString(int alignment);
 
@@ -54,14 +54,21 @@ namespace Eval {
 		void* nd = nullptr;
 		void* exp = nullptr;
 		bool needs_val;
+		bool is_lh;
 		bool is_top_level;
 		int stack_offset;
 
-		NodeEvaluator(void*, void*, bool, bool is_top_level, int stack_offset); // Last argument signifies whether the NodeEvaluator is working for a parent NodeEvaluator
+		NodeEvaluator(void*, void*, bool needs_val, bool is_lh, bool is_top_level, int stack_offset); // Last argument signifies whether the NodeEvaluator is working for a parent NodeEvaluator
 
 		void construct(void*, void*);
 
-		void evaluatePatternMatch(void* pm); // pm is an AST::PatternMatchNode*
+		void evaluateArrayInitializer(void* ai); // ai is an AST::ArrayInitializerNode*
+
+		void evaluateLiteral(void* lt);          // lt is an AST::LiteralNode*
+
+		void evaluateVariable(void* vr);         // vr is an AST::VariableNode*
+
+		void evaluatePatternMatch(void* pm);     // pm is an AST::PatternMatchNode*
 
 		void evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvaluator lh_eval, ptr_NodeEvaluator rh_eval); // vsym is an AST::HeaderSymbol*
 

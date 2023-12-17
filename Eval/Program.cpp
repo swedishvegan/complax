@@ -6,7 +6,7 @@
 
 Eval::Program::Program(int argc, char** argv) {
 
-    ptr_Evaluator evaluator = nullptr;
+    ptr_Evaluator evaluator;
     Code::ptr_Bundle codebase;
 
     Timer timer;

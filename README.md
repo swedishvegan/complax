@@ -14,7 +14,8 @@
         3. [Comments](#pt3.1.3)
         4. [Whitespace](#pt3.1.4)
         5. [Commas and colons](#pt3.1.5)
-        5. [Data types](#pt3.1.6)
+        6. [Data types](#pt3.1.6)
+        7. [Arrays](#pt3.1.7)
     2. [Control flow: if, else, while](#pt3.2)
         1. [if/ else](#pt3.2.1)
         2. [while](#pt3.2.2)
@@ -70,12 +71,12 @@ function { next leap year after {year} } wlabl { Find Next Leap Year }    // for
 
 start program {
 
-    output 'Please enter a year: '
+    output "Please enter a year: "
 
     current year = input as integer
     next leap year = next leap year after current year    // calling the function "next leap year after {year}"
 
-    output 'The next leap year is ' + "next leap year" + '\n'
+    output "The next leap year is " + (next leap year as string) + "\n"
 
 }
 
@@ -91,7 +92,7 @@ function { {year} is a leap year } {
 
 function { {year} is not a leap year } { return not year is a leap year }
 
-Find Next Leap Year {    // implementing the function "next leap year after {year}
+Find Next Leap Year {    // implementing the function "next leap year after {year}"
 
     while year is not a leap year, year = year + 1
     return year
@@ -159,7 +160,7 @@ Let's begin with a classic "Hello world" example program:
 ```
 start program {
 
-    output 'Hello world'
+    output "Hello world\n"
 
 }
 ```
@@ -185,7 +186,7 @@ start program {
     local variable = global variable + 9
     
     output local variable
-    output '\n'
+    output "\n"
 
 } 
 ```
@@ -231,7 +232,7 @@ start program {
     */
 
     output x - 3 // Outputs the number "0"
-    output '\n'  // Outputs a newline
+    output "\n"  // Outputs a newline
 
 }
 ```
@@ -318,6 +319,8 @@ Each data type is 64-bit. When you use a literal of any of these types in your c
 3. Otherwise if the literal is numeric and has a decimal point or an exponent (i.e. 1.23e10), it is a decimal
 4. Otherwise, it is an integer
 
+You can also create arrays, which are detailed in the next section, [Arrays](#pt3.1.7).
+
 What if you want to explicitly declare the data type? Lax has a way to do this:
 
 ```
@@ -339,7 +342,7 @@ What happens if you assign a variable an expression of the wrong type? Take a lo
 start program {
 
     x = true    // x is created with boolean type
-    x = 'false' // x is reassigned a value with string type
+    x = "false" // x is reassigned a value with string type
 
 }
 ```
@@ -358,6 +361,38 @@ Luckily, if you make a mistake like this, the compiler will catch it for you and
  Compilation finished in 0.001 seconds with 0 detected memory leak(s).
 ```
 
+#### Arrays <a name="pt3.1.7"></a>
+
+You can create arrays containing any data type, including other arrays. Here are the different ways you can create an array:
+
+```
+start program {
+
+    arr1 = { 1, 2, 3, 4 }           // Bracket initializer
+    arr2 = string array of length 5 // Array of 5 empty strings
+
+    output length of arr1           // Outputs '4'
+    output "\n"
+
+    output length of arr2           // Outputs '5'
+    output "\n"
+
+}
+```
+
+You can also reference the array type without actually creating an array, similar to using ```nullptr``` in C/C++. In Lax's lingo, this is called ```nothing```. Trying to dereference a variable that was assigned to ```nothing``` will cause a runtime error.
+
+```
+start program {
+
+    arr = boolean array
+    output arr[0]        // Don't do this!
+
+}
+```
+
+This syntax is useful if you want to refer to the type of an array without actually creating an array object. However, you need to make sure that no arrays you reference in your code are assigned ```nothing```.
+
 ### Control flow: if, else, while <a name="pt3.2"></a>
 
 #### if/ else <a name="pt3.2.1"></a>
@@ -371,11 +406,11 @@ Here's a simple example of an if/else statement in action:
 ```
 start program {
 
-    output 'What\'s your name? '
+    output "What's your name? "
     name = input
 
-    if name == 'swedishvegan', output 'You\'re the creator of Lax!\n'
-    else, output 'You didn\'t create Lax, but I\'m sure you\'re cool anyway!\n'
+    if name == "swedishvegan", output "You're the creator of Lax!\n"
+    else, output "You didn't create Lax, but I'm sure you're cool anyway!\n"
 
 }
 ```
@@ -399,10 +434,10 @@ If you want to run more than one statement after the ```if``` or ```else``` you 
 ```
 start program {
 
-    x=23    if x == 23 { output 'You should see this message\n'    x = 10000    } else { output 'You should not see this message\n' }
+    x=23    if x == 23 { output "You should see this message\n"    x = 10000    } else { output "You should not see this message\n" }
     
     output x    // Should output the number "10000"
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -424,7 +459,7 @@ For example, the following code simply counts to 10:
 start program {
 
     x = 0
-    while x < 10 { output 'x = ', output x, output '\n', x = x + 1 } // x is incremented by 1 each time the loop is run.
+    while x < 10 { output "x = ", output x, output "\n", x = x + 1 } // x is incremented by 1 each time the loop is run.
 
 }
 ```
@@ -467,9 +502,9 @@ start program {
 
     x = input    // Gets the next line of input from the user and stores it as a string
 
-    output x + ' is what you just said to me.\n'    // Outputs a string
+    output x + " is what you just said to me.\n"    // Outputs a string
     output 42    // Any non-string primitive data type will be automatically converted to a string
-    output '\n'    // Newline
+    output "\n"    // Newline
 
     start timer    // Built-in functionality for performance testing purposes
 
@@ -478,7 +513,7 @@ start program {
 
     time = timer value    // Gets the time (decimal in seconds) that has passed since the timer was started
 
-    output 'Took ' + "time" + ' seconds to count to 10000000.\n'
+    output "Took " + (time as string) + " seconds to count to 10000000.\n"
 
 }
 ```
@@ -509,14 +544,14 @@ To convert from one type to another, use the ```as``` keyword, like so:
 ```
 start program {
 
-    output 'Please enter a number: '
+    output "Please enter a number: "
 
     N = input as decimal    // Converts user input to a decimal so that we can do math on it
     N = N^2    // Squares N
 
-    output 'The square of that number is '
+    output "The square of that number is "
     output N
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -526,29 +561,20 @@ You can also use the ```like``` keyword to cast one type to be the same type as 
 ```
 start program {
 
-    output 'Please enter a number: '
+    output "Please enter a number: "
 
     number two = 2    // number two is an integer
     N = input like number two    // Since number two is an integer, N will be initialized as an integer as well
     N = N^numbertwo
 
-    output 'The square of that number is '
+    output "The square of that number is "
     output N
-    output '\n'
+    output "\n"
 
 }
 ```
 
 __NOTE:__ ```as``` __and__ ```like``` __actually do the exact same thing under the hood, and are completely interchangable. I just thought it was nice to provide both for the sake of greater readability.__
-
-There is also a special kind of typecast just for converting primitives to strings:
-
-```
-start program {
-    x = 23
-    y = "x"  // Double quotes convert other primitive types to strings
-}
-```
 
 In order to query the type of a variable or expression, you can use the ```is``` or ```islike``` functions:
 
@@ -558,17 +584,17 @@ start program {
     example integer = 2
     example decimal = 2.2
     
-    output example integer is integer    // Should output 'true'
-    output '\n'
+    output example integer is integer    // Should output "true"
+    output "\n"
 
-    output example decimal is decimal    // Should output 'true'
-    output '\n'
+    output example decimal is decimal    // Should output "true"
+    output "\n"
 
-    output (example integer is integer) is boolean    // Should output 'true'
-    output '\n'
+    output (example integer is integer) is boolean    // Should output "true"
+    output "\n"
 
-    output example integer is like example decimal    // Should output 'false' since the two variables have different types
-    output '\n'
+    output example integer is like example decimal    // Should output "false" since the two variables have different types
+    output "\n"
 
 }
 ```
@@ -593,7 +619,7 @@ start program {
     y = type of x    // y is a decimal initialized to zero, the default value for its type
 
     output y    // Prints out the number 0 in decimal form
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -670,7 +696,7 @@ function { stuff with {a} and {b} } { return a + b }
 start program { 
     
     output stuff with 1 and 2    // Calls the function "stuff with {a} and {b}" with a=1 and b=2
-    output '\n'    // Newline
+    output "\n"    // Newline
     
 }
 ```
@@ -685,7 +711,7 @@ function { stuff with {a} and {b} } { return a + b }
 start program { 
     
     output stuff with stuff with 1 and 2 and stuff with 3 and 4  // Outputs 1+2+3+4 = 10
-    output '\n'    // Newline
+    output "\n"    // Newline
     
 }
 ```
@@ -706,7 +732,7 @@ start program {
     output stuff with 1 and 2   // OK: 1 is an integer and 2 is an integer
     output stuff with 1 and 2.3 // OK: 1 is an integer and 2.3 is a decimal
     output stuff with 1.2 and 2 // ERROR: 1.2 not an integer
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -736,13 +762,13 @@ When we try to compile this code, we get the following error:
 You can also use function calls or expressions as a type restriction:
 
 ```
-function { dumb test } { return 'dumb test' } // This function always returns a string
+function { dumb test } { return "dumb test" } // This function always returns a string
 
 function { stuff with {a} and {b} } { return a + b } wrest { a: typeof dumb test, b: typeof dumb test }
 
 start program {
 
-    output stuff with 'Hello ' and 'world.\n' // OK
+    output stuff with "Hello " and "world.\n" // OK
     output stuff with 1 and 2 // ERROR: Arguments need to be string
 
 }
@@ -775,8 +801,8 @@ If you delete the problematic line, the program prints out "Hello world" like yo
 You also need to be careful not to include a function inside its own restrictions. Consider the following code:
 
 ```
-function { stuff with {a} and {b} } wrest { a: typeof stuff 1 and 2, b: integer } { return a + b }
-start program { output stuff with 1 and 2, output '\n' }
+function { stuff with {a} and {b} } wrest { a: typeof stuff with 1 and 2, b: integer } { return a + b }
+start program { output stuff with 1 and 2, output "\n" }
 ```
 
 If this were allowed, the compiler would get stuck in an infinite loop. To avoid this, it has been made explicitly illegal to reference a function inside its own restrictions. If you try to compile this code, you will get an error that looks like this:
@@ -806,9 +832,9 @@ function { {n} ! } wprec {10} /* Explicitly declaring precedence; this is explai
 
 start program {
 
-    output 'Enter a number: '
+    output "Enter a number: "
     n = input as integer
-    output "n" + '! = ' + "n!" + '\n'
+    output "n" + "! = " + (n! as string) + "\n"
 
 }
 ```
@@ -847,9 +873,9 @@ function { {n} ! } wprec {10} returns typeof n {
 
 start program {
 
-    output 'Enter a number: '
+    output "Enter a number: "
     n = input as integer
-    output "n" + '! = ' + "n!" + '\n'
+    output n as string + "! = " + (n! as string) + "\n"
 
 }
 ```
@@ -888,7 +914,7 @@ function { {a} $$ {b} }
 start program {
 
     output (F 3 G $$ 4 G)
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -944,7 +970,7 @@ One more thing to be aware of is that it is illegal to change the precedence of 
 function { test: {a} } wlabl { TEST } // Forward declaration; see next subsection for info
 function { test2: {a} } { return test: a }
 
-start program { output test2: 300, output '\n' }
+start program { output test2: 300, output "\n" }
 TEST wprec {100} /* Illegal redefinition of precedence */ { return 100 }
 ```
 
@@ -965,7 +991,7 @@ function { hello world } wlabl { Hello world function here } // Forward declarat
 
 start program { hello world }
 
-Hello world function here: { output 'Hello world\n' } // Implementing the function -- the colon here is optional as always
+Hello world function here: { output "Hello world\n" } // Implementing the function -- the colon here is optional as always
 ```
 
 This code outputs "Hello world" like you would expect.
@@ -975,12 +1001,12 @@ This code outputs "Hello world" like you would expect.
 Lax lets you define multiple functions with the same pattern, as long as the compiler is able to disambiguate which version of the function you're calling during type evaluation.
 
 ```
-function { stuff with {a} and {b} } wrest { a: string, b: string } { return 'This is the string version of the function\n' }
-function { stuff with {a} and {b} } wrest { a: integer, b: integer } { return 'This is the integer version of the function\n' }
+function { stuff with {a} and {b} } wrest { a: string, b: string } { return "This is the string version of the function\n" }
+function { stuff with {a} and {b} } wrest { a: integer, b: integer } { return "This is the integer version of the function\n" }
 
 start program {
 
-    output stuff with 'Hey' and 'Wassup'  // Compiler knows you're calling the string version
+    output stuff with "Hey" and "Wassup"  // Compiler knows you're calling the string version
     output stuff with 300 and 6789  // Compiler knows you're calling the integer version
 
 }
@@ -1001,7 +1027,7 @@ function { test: {x} } wrest { x: boolean } { return not x }
 
 start program {
 
-    output test: 'HELLO'  // OK: There is only one pattern with the signature "test: {}" that takes a string as an argument
+    output test: "HELLO"  // OK: There is only one pattern with the signature "test: {}" that takes a string as an argument
     output test: true     // ERROR: Both versions of "test: {}" allow a boolean, so the compiler doesn't know which one you mean
 
 }
@@ -1036,7 +1062,7 @@ You also need to be careful that all the overloaded functions have the same prec
 function { test: {x} } wrest { x: string } wprec{100} { return x }
 function { test: {x} } wrest { x: boolean } wprec{200} { return not x }
 
-start program { output test: 'Hello\n' }
+start program { output test: "Hello\n" }
 ```
 
 will give you this error message:
@@ -1065,7 +1091,7 @@ start program {
     unction = 100
 
     output Function... // Amgibuous expression
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -1096,13 +1122,13 @@ In this particular example, here's what happens when you try to compile:
 If there are two possible valid expressions but one is longer than the other, the compiler always selects the longer one. For example, check out this program:
 
 ```
-function { {a} @ {b} } return { a-b }
-function { {a} @ } return { a }
+function { {a} @ {b} } { return a-b }
+function { {a} @ } { return a }
 
 start program { 
 
     output 2 @ 1
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -1120,7 +1146,7 @@ start program {
     Variable 1 = 30
 
     output Variable 1
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -1152,7 +1178,7 @@ start program {
     Variable 2 = Variable 1
 
     output Variable 2
-    output '\n'
+    output "\n"
 
 }
 ```
@@ -1182,8 +1208,8 @@ variable to import = 10
 Then, in another file "main.lax" we can import our other Lax file like so:
 
 ```
-import 'import.lax'
-start program { output "variable to import" + '\n' }
+import "import.lax"
+start program { output variable to import as string + "\n" }
 ```
 
 Unlike includes in C/C++, importing is not transitive -- if you import file A in file B, and import file B in file C, file A will NOT be imported into file C. This helps keep symbol tables small and avoid symbol pollution.

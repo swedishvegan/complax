@@ -1,2 +1,2 @@
 
-start program { output 'Hello world\n' }
+start program { output "Hello world\n" }

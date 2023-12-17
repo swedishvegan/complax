@@ -11,6 +11,15 @@ bool AST::Node::contains(ptr_Symbol sym) {
 
 	if (ID == NodeID::Expression) return ((ExpressionNode*)this)->expression->node->contains(sym);
 
+	if (ID == NodeID::ArrayInitializer) {
+
+		for (auto exp : ((ArrayInitializerNode*)this)->components)
+			if (exp->node->contains(sym)) return true;
+
+		return false;
+
+	}
+
 	if (ID == NodeID::Filler || ID == NodeID::Variable) return ((KeywordNode*)this)->sym == sym;
 
 	if (ID == NodeID::PatternMatch) { 
@@ -32,6 +41,9 @@ void AST::Node::updateReferenceCounts() {
 
 	if (ID == NodeID::Expression) ((ExpressionNode*)this)->expression->node->updateReferenceCounts();
 
+	else if (ID == NodeID::ArrayInitializer)
+		for (auto exp : ((ArrayInitializerNode*)this)->components) exp->node->updateReferenceCounts();
+
 	else if (ID == NodeID::Variable) ((VariableNode*)this)->sym->num_references++;
 
 	else if (ID == NodeID::PatternMatch) {
@@ -46,10 +58,23 @@ void AST::Node::updateReferenceCounts() {
 	else if (ID == NodeID::StructureMember) ((StructureMemberNode*)this)->base->updateReferenceCounts();
 
 }
-
+#include <iostream>
 AST::SymbolBundle* AST::Node::findPrecedenceConflicts() {
-
+	
 	if (ID == NodeID::Expression) return ((ExpressionNode*)this)->expression->node->findPrecedenceConflicts();
+
+	if (ID == NodeID::ArrayInitializer) {
+
+		for (auto exp : ((ArrayInitializerNode*)this)->components) {
+			
+			auto cft = exp->node->findPrecedenceConflicts();
+			if (cft) return cft;
+
+		}
+
+		return nullptr;
+
+	}
 
 	if (ID == NodeID::PatternMatch) {
 
@@ -57,21 +82,21 @@ AST::SymbolBundle* AST::Node::findPrecedenceConflicts() {
 		auto bundle = pm->bundle;
 
 		if (bundle->needs_precedence_check) {
-
+			
 			auto& syms = bundle->syms;
 
 			for (int i = 0; i < syms.size(); i++) for (int j = i + 1; j < syms.size(); j++) {
 
 				auto sym1 = syms[i].cast<HeaderSymbol>();
 				auto sym2 = syms[j].cast<HeaderSymbol>();
-
+				
 				bool precedence_conflict = false;
 
 				if (sym1->operator[](0).is_argument && sym1->precedence_lh != sym2->precedence_lh) precedence_conflict = true;
 				if (sym1->operator[](sym1->size() - 1).is_argument && sym1->precedence_rh != sym2->precedence_rh) precedence_conflict = true;
 
 				if (precedence_conflict) {
-
+					
 					bundle->conflict_first = i;
 					bundle->conflict_second = j;
 
@@ -104,9 +129,32 @@ AST::SymbolBundle* AST::Node::findPrecedenceConflicts() {
 
 CompileError* AST::Node::getContainedError() {
 
-	if (ID == NodeID::Expression) return &((ExpressionNode*)this)->expression->error;
+	if (ID == NodeID::Literal) {
 
-	if (ID == NodeID::PatternMatch) {
+		auto& err = ((LiteralNode*)this)->literal->error;
+		return err.error ? &err : nullptr;
+
+	}
+
+	else if (ID == NodeID::Expression) {
+
+		auto& err = ((ExpressionNode*)this)->expression->error;
+		return err.error ? &err : nullptr;
+
+	}
+
+	else if (ID == NodeID::ArrayInitializer) {
+
+		for (auto exp : ((ArrayInitializerNode*)this)->components) {
+
+			auto err = exp->node->getContainedError();
+			if (err) return err;
+
+		}
+
+	}
+
+	else if (ID == NodeID::PatternMatch) {
 
 		auto pm = (PatternMatchNode*)this;
 
@@ -115,7 +163,7 @@ CompileError* AST::Node::getContainedError() {
 
 	}
 
-	if (ID == NodeID::StructureMember) return ((StructureMemberNode*)this)->base->getContainedError();
+	else if (ID == NodeID::StructureMember) return ((StructureMemberNode*)this)->base->getContainedError();
 
 	return nullptr;
 
@@ -130,6 +178,18 @@ bool AST::Node::equals(ptr_Node lh, ptr_Node rh) {
 
 	if (lh->ID == NodeID::Expression) return equals(lh.cast<ExpressionNode>()->expression->node, rh.cast<ExpressionNode>()->expression->node);
 	
+	if (lh->ID == NodeID::ArrayInitializer) {
+
+		auto lh_ai = lh.cast<ArrayInitializerNode>();
+		auto rh_ai = rh.cast<ArrayInitializerNode>();
+
+		if (lh_ai->components.size() != rh_ai->components.size()) return false;
+		for (int i = 0; i < lh_ai->components.size(); i++) if (!equals(lh_ai->components[i]->node, rh_ai->components[i]->node)) return false;
+
+		return true;
+
+	}
+
 	if (lh->ID == NodeID::Literal) return lh->start == rh->start && lh->end == rh->end;
 	
 	if (lh->ID == NodeID::Filler || lh->ID == NodeID::Variable) {
@@ -186,6 +246,8 @@ bool AST::Node::necessitates(NodeID LH, NodeID RH) {
 
 	if (LH == NodeID::Expression) return RH != NodeID::Label;
 
+	if (LH == NodeID::ArrayInitializer) return RH != NodeID::Label;
+
 	if (LH == NodeID::Literal) return RH == NodeID::Literal;
 
 	if (LH == NodeID::Variable) return RH == NodeID::Variable;
@@ -208,8 +270,21 @@ AST::ExpressionNode::ExpressionNode(ptr_Expression expression, int start, int en
 
 string AST::ExpressionNode::toString(int alignment) { return expression->node->toString(alignment); }
 
+AST::ArrayInitializerNode::ArrayInitializerNode() : Node(NodeID::ArrayInitializer) { }
+
+string AST::ArrayInitializerNode::toString(int alignment) {
+
+	if (components.size() == 0) return "Array (empty)";
+
+	string s = "Array:\n";
+	for (auto exp : components) s += exp->node->print(alignment + 1, exp != components[components.size() - 1]);
+
+	return s;
+
+}
+
 AST::LiteralNode::LiteralNode(ptr_Literal literal) : Node(NodeID::Literal), literal(literal) { this->start = literal->start.index; this->end = literal->end.index; }
-#
+
 string AST::LiteralNode::toString(int) { return "LiteralNode:    " + removePadding(removeNewlines(literal->info.c_str())); }
 
 AST::KeywordNode::KeywordNode(NodeID ID, ptr_Symbol sym, int sym_idx, int start, int end) : Node(ID), sym(sym), sym_idx(sym_idx) { this->start = start; this->end = end; }

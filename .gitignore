@@ -6,7 +6,7 @@ Testing
 Makefile
 cmake_install.cmake
 install_manifest.txt
-compile_commands.json
+*.json
 CTestTestfile.cmake
 _deps
 *.syntax_tree

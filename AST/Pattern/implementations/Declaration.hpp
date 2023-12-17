@@ -3,12 +3,14 @@
 
 #include "./FreePattern.hpp"
 #include "./../../Symbol/Symbol.hpp"
+#include "./Expression/Expression.hpp"
 
 namespace AST {
 
 	struct Declaration : public Pattern {
-
+		
 		ptr_Symbol sym;
+		ptr_Expression expression;
 
 		Declaration();
 

@@ -3,7 +3,7 @@
 #include "./../../../Pattern/implementations/Declaration.hpp"
 #include "./../../../utility_functions.hpp"
 #include "./../../../Symbol/SymbolSearchTree.hpp"
-
+#include <iostream>
 AST::Expression::Expression() : Pattern(PatternID::Expression) { }
 
 string AST::Expression::getInfo(int alignment) { return "\n" + node->print(alignment + 1, false); }
@@ -14,8 +14,8 @@ unsigned long long AST::Expression::total_successors_generated = 0;
 
 #define node_cache (*cache)
 
-AST::Scanner_Expression::Scanner_Expression(Code::Loader& loader, int start, int end, int cur_best_start, SymbolTableLinker symbols)
-	: Scanner(loader, start, end, cur_best_start), loader(loader), start(start), end(end), symbols(symbols) {
+AST::Scanner_Expression::Scanner_Expression(Code::Loader& loader, int start, int end, int cur_best_start, SymbolTableLinker symbols, bool is_top_level)
+	: Scanner(loader, start, end, cur_best_start), loader(loader), start(start), end(end), symbols(symbols), is_top_level(is_top_level) {
 
 	if (cache) getWinner(node_cache[start]);
 	if (result != nullptr) return;
@@ -52,6 +52,8 @@ void AST::Scanner_Expression::generateSuccessors(ExpressionStack& expression_sta
 
 	generateExpressionSuccessors(expression_stack, validator_stack, start, successors);
 
+	generateArrayInitializerSuccessors(expression_stack, validator_stack, start, successors);
+
 	generateLiteralSuccessors(expression_stack, validator_stack, start, successors);
 
 	generateVariableSuccessors(expression_stack, validator_stack, start, successors);
@@ -65,7 +67,7 @@ void AST::Scanner_Expression::generateSuccessors(ExpressionStack& expression_sta
 	generateLabelSuccessors(expression_stack, validator_stack, start, successors);
 
 	Expression::total_successors_generated += successors.size();
-	
+
 	if (successors.size() == 0) {
 		
 		terminateBranch(expression_stack, validator_stack);
@@ -112,7 +114,7 @@ void AST::Scanner_Expression::generateExpressionSuccessors(ExpressionStack&, Val
 
 	if (matchString_(loader, kw, par_start) >= 0) {
 
-		Scanner_Expression exp(loader, par_start + 1, end, 0, symbols);
+		Scanner_Expression exp(loader, par_start + 1, end, 0, symbols, false);
 
 		if (exp.result != nullptr) {
 
@@ -122,6 +124,45 @@ void AST::Scanner_Expression::generateExpressionSuccessors(ExpressionStack&, Val
 			int par_end = exp_result->node->end;
 
 			if (matchString_(loader, kw, par_end) >= 0) successors.push_back(new ExpressionNode(exp_result, start, par_end + 1));
+
+		}
+
+	}
+
+}
+
+void AST::Scanner_Expression::generateArrayInitializerSuccessors(ExpressionStack&, ValidatorStack&, int start, NodeList& successors) {
+
+	if (!isPossibleSuccessor(NodeID::ArrayInitializer)) return;
+
+	const char* kw = "{";
+	int par_start = start;
+
+	if (matchString_(loader, kw, par_start) >= 0) {
+
+		ptr_ArrayInitializerNode array_node = new ArrayInitializerNode();
+		int next_exp_start = par_start + 1;
+
+		while (true) {
+
+			Scanner_Expression exp(loader, next_exp_start, end, 0, symbols, false);
+			auto exp_result = exp.result.cast<Expression>();
+
+			if (exp_result == nullptr) break;
+
+			array_node->components.push_back(exp.result.cast<Expression>());
+			next_exp_start = exp_result->node->end;
+
+		}
+
+		kw = "}";
+
+		if (matchString_(loader, kw, next_exp_start) >= 0) {
+			
+			array_node->start = start;
+			array_node->end = next_exp_start + 1;
+
+			successors.push_back(array_node.cast<Node>());
 
 		}
 
@@ -452,7 +493,9 @@ bool AST::Scanner_Expression::patternMatchExists(ExpressionStack& expression_sta
 
 		auto filler_node = node.cast<FillerNode>();
 
-		if (filler_node->bundle == val.bundle || val.distance < 0) {
+		if (filler_node->sym_idx != filler_node->bundle->firstSym()->filler_indices[0]) pattern_matched = true;
+
+		else if (filler_node->bundle == val.bundle || val.distance < 0) {
 
 			auto next_pattern_sym = filler_node->sym.cast<HeaderSymbol>();
 
@@ -562,10 +605,10 @@ void AST::Scanner_Expression::getWinner(NodeList& candidates) {
 
 	for (auto c : candidates) {
 
-		if (!requirements[0] && !requirements[(int)c->ID]) continue;
+		if (is_top_level && !requirements[0] && !requirements[(int)c->ID]) continue;
 
 		if (c->start > start) continue;
-
+		
 		if (!c->isArgument()) continue;
 
 		if (winner == nullptr) { winner = c; continue; }
@@ -602,12 +645,12 @@ void AST::Scanner_Expression::getWinner(NodeList& candidates) {
 
 	}
 	else {
-
+		
 		auto err = winner->getContainedError();
 		if (err) expression->error = *err;
 
 		else {
-
+			
 			auto bundle = winner->findPrecedenceConflicts();
 
 			if (bundle) {
@@ -616,15 +659,15 @@ void AST::Scanner_Expression::getWinner(NodeList& candidates) {
 
 				error.error = true;
 				error.info = "Two symbols with the same signature have conflicting precedences.";
-
+				
 				auto sym1 = (HeaderSymbol*)bundle->syms[bundle->conflict_first]();
 				auto sym2 = (HeaderSymbol*)bundle->syms[bundle->conflict_second]();
 
 				auto header1 = (Builder*)sym1->header;
 				auto header2 = (Builder*)sym2->header;
 
-				header1->single_line = true;
-				header2->single_line = true;
+				if (header1) header1->single_line = true;
+				if (header2) header2->single_line = true;
 
 				auto problem_exp1 = 
 					header1

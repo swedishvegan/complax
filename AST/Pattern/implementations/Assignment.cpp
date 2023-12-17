@@ -2,7 +2,7 @@
 
 AST::Assignment::Assignment() : Pattern(PatternID::Assignment) { }
 
-string AST::Assignment::getInfo(int alignment) { if (node == nullptr) return ""; return "\n" + node->print(alignment + 1, false); }
+string AST::Assignment::getInfo(int alignment) { if (expression == nullptr) return ""; return "\n" + expression->node->print(alignment + 1, false); }
 
 AST::Scanner_Assignment::Scanner_Assignment(Code::Loader& loader, int start, int end, int cur_best_start) : Scanner(loader, start, end, cur_best_start) {
 
@@ -21,7 +21,7 @@ AST::Scanner_Assignment::Scanner_Assignment(Code::Loader& loader, int start, int
 
 		ass->start = loader(start);
 		ass->end = loader(end);
-		ass->node = node;
+		ass->expression = expression;
 
 		result = ass.cast<Pattern>();
 

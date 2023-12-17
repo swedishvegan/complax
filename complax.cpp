@@ -19,13 +19,15 @@ int main(int argc, char** argv) {
 
 	}
 
-	std::cout 
-		<< " Compilation finished in " 
-		<< std::fixed << std::setprecision(3) 
-		<< compile_time 
-		<< " seconds with " 
-		<< ptr_container::num_allocs
-		<< " detected memory leak(s).\n";
+	//if (!exit_code) 
+		std::cout 
+			<< " Compilation finished in " 
+			<< std::fixed << std::setprecision(3) 
+			<< compile_time 
+			<< " seconds with " 
+			<< ptr_container::num_allocs
+			<< " detected memory leak(s).\n"
+		;
 
 	return exit_code;
 	

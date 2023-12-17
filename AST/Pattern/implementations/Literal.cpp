@@ -3,13 +3,7 @@
 
 AST::Literal::Literal() : Pattern(PatternID::Literal) { }
 
-string AST::Literal::getInfo(int alignment) {
-
-	auto s = removePadding(removeNewlines(info.c_str())) + "\n" + PrintableTypeList::TypeID_toString(type, alignment + 1);
-	
-	return s.substr(0, s.size() - 1);
-	
-}
+string AST::Literal::getInfo(int alignment) { return removePadding(removeNewlines(info.c_str())) + "\n" + Type(type).print(alignment + 1, false); }
 
 AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, int) : Scanner(loader, start, end, 0) {
 
@@ -20,7 +14,10 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 		"integer",
 		"decimal",
 		"boolean", 
+		"ascii",
 		"string",
+
+		//"array",
 
 	};
 
@@ -31,7 +28,10 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 		Type::Integer,
 		Type::Decimal,
 		Type::Bool,
+		Type::Ascii,
 		Type::String,
+
+		//Type::Array,
 
 	};
 
@@ -49,6 +49,7 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 		literal->end = loader(typename_kw_match);
 		literal->info = typename_kw[i];
 		literal->type = typename_kw_ID[i];
+		literal->is_keyword = true;
 
 		result = literal.cast<Pattern>();
 		return;
@@ -69,6 +70,7 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 		literal->end = loader(kw_true_match >= 0 ? kw_true_match : kw_false_match);
 		literal->info = kw_true_match >= 0 ? true_kw : false_kw;
 		literal->type = Type::Bool;
+		literal->is_keyword = true;
 		
 		result = literal.cast<Pattern>();
 		return;
@@ -78,7 +80,9 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 	int true_start = start;
 	while (loader(true_start).is_whitespace) true_start++;
 
-	if (loader[true_start] == '\'') {
+	char delimiter = loader[true_start];
+
+	if (delimiter == '"'/* || delimiter == '\''*/) {
 
 		true_start++;
 
@@ -93,7 +97,7 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 
 			char c = loader[true_start];
 
-			if (c == '\'' && !ignore_next) break;
+			if (c == delimiter && !ignore_next) break;
 
 			else if (c == '\\' && !ignore_next) ignore_next = true;
 
@@ -116,7 +120,18 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 		literal->start = loader(start);
 		literal->end = loader(true_start + 1);
 		literal->info = kw;
-		literal->type = Type::String;
+		literal->type = (delimiter == '"') ? Type::String : Type::Ascii;
+
+		if (literal->type == Type::Ascii && kw.size() != 1) {
+
+			literal->error.error = true;
+			literal->error.info = "Ascii literal at " + loader(start).toString() + " contains " + string(
+				(kw.size() == 0)
+					? "no characters."
+					: "too many characters."
+			);
+
+		}
 
 		result = literal.cast<Pattern>();
 		return;

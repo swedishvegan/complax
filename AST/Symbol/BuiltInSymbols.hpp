@@ -29,6 +29,8 @@
 
 #define SYS_PREC -4.0  // p0 value for sys functions
 
+#define ARR_PREC 3.0   // p0 value for all array functions
+
 namespace AST {
 
 	ptr_SymbolTable genDefaultSymbolTable(); // Generates all built-in symbols to be recognized by the compiler
@@ -38,11 +40,12 @@ namespace AST {
 	ptr_Symbol definePattern (
 
 		const char* header,       // Example: "do stuff with {x} and {y}"
-		const char* restrictions, // Example: "i,db" --> x must be integer, y could be decimal or bool (i = integer, d = decimal, b = bool, s = string, n = nothing)
+		const char* restrictions, // Example: "i,db" --> x must be integer, y could be decimal or bool (i = integer, d = decimal, b = bool, c = ascii, s = string, a = array, n = nothing, * = anything)
 		const char* description,
 		SymbolID pattern_type, 
 		Precedence p_lh = Precedence(), 
-		Precedence p_rh = Precedence()
+		Precedence p_rh = Precedence(),
+		bool is_assignable = false
 
 	);
 

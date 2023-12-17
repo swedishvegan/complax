@@ -253,6 +253,17 @@ bool AST::GlobalScopeBuilder::processPattern(ptr_Pattern p) {
 
 			}
 
+			if (!Type(evaluator.eval_type).isConcrete()) {
+
+				error.error = true;
+				error.info = "Global variable must have a concrete type:";
+				error.sources.push_back(decl.cast<Printable>());
+
+				finished = true;
+				return false;
+
+			}
+
 			decl->sym->evaluator = evaluator;
 
 		}

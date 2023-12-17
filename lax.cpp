@@ -99,7 +99,10 @@ bool first_read = true; // getchar() if not first read
 
 pointer alloc(instruction size) {
 
-    hp += size;
+    hp += (8 - hp%8) % 8;
+    *(instruction*)(heap + hp) = size;
+
+    hp += size + 8;
     return hp - size;
 
 }
@@ -228,6 +231,9 @@ int main(int argc, char** argv) {
 #define stack_arg(i, T) stack_element(arg(i, instruction), T)
 #define local_stack_arg(i, T) local_stack_element(arg(i, instruction), T)
 #define finish(code) if (heap) delete[] heap; if (_stack) delete[] _stack; if (_program) delete[] _program; return code
+#define heap_arg(base, index, T) (*(T*)(heap + base + index))
+
+#define nothing_accessed() { std::cout << "\nAttempt to access nothing.\n"; return 1; }
 
     if (!init(argv[1])) { finish(1); }
 
@@ -246,7 +252,7 @@ int main(int argc, char** argv) {
 
     case inst::sass:
 
-        if (sp + arg(1, instruction) > stack_size) {
+        if (sp + arg(1, instruction) >= stack_size) {
 
             printf("\nStack overflow.\n");
             finish(1);
@@ -338,6 +344,60 @@ int main(int argc, char** argv) {
         /* Garbage collection here */
         break;
 
+    case inst::halloc:
+
+        local_stack_arg(2, instruction) = alloc(local_stack_arg(1, instruction) * 8);
+
+        ip += 3;
+        break;
+
+    case inst::hinit:
+
+    {
+
+        auto arrlength = local_stack_arg(1, instruction) * 8;
+        auto allocation = alloc(arrlength);
+
+        std::memset(heap + allocation, 0, 8 * arrlength);
+
+        local_stack_arg(2, instruction) = allocation;
+
+    }
+
+        ip += 3;
+        break;
+
+    case inst::lhcpy:
+
+    {
+
+        auto heapoffset = local_stack_arg(3, instruction);
+        if (heapoffset == 0) nothing_accessed();
+
+        std::memcpy(heap + heapoffset, stack + sp + arg(2, instruction), 8 * local_stack_arg(1, instruction));
+
+    }
+
+        ip += 4;
+        break;
+
+    case inst::hhcpy:
+
+    {
+
+        auto heapoffsetdst  = local_stack_arg(3, instruction);
+        if (heapoffsetdst == 0) nothing_accessed();
+
+        auto heapoffsetsrc  = local_stack_arg(2, instruction);
+        if (heapoffsetsrc == 0) nothing_accessed();
+
+        std::memcpy(heap + heapoffsetdst, heap + heapoffsetsrc, 8 * local_stack_arg(1, instruction));
+
+    }
+
+        ip += 4;
+        break;
+
     case inst::movll:
 
         local_stack_arg(2, instruction) = local_stack_arg(1, instruction);
@@ -359,6 +419,20 @@ int main(int argc, char** argv) {
         ip += 3;
         break;
 
+    case inst::movhl:
+
+    {
+
+        auto heapoffset = local_stack_arg(2, instruction);
+        if (heapoffset == 0) nothing_accessed();
+
+        local_stack_arg(3, instruction) = heap_arg(heapoffset, 8 * local_stack_arg(1, instruction), instruction);
+
+    }
+
+        ip += 4;
+        break;
+
     case inst::movlx:
 
         stack_arg(2, instruction) = local_stack_arg(1, instruction);
@@ -378,6 +452,129 @@ int main(int argc, char** argv) {
         stack_arg(2, instruction) = stack_arg(1, instruction);
 
         ip += 3;
+        break;
+
+    case inst::movhx:
+
+    {
+
+        auto heapoffset = local_stack_arg(2, instruction);
+        if (heapoffset == 0) nothing_accessed();
+
+        stack_arg(3, instruction) = heap_arg(heapoffset, 8 * local_stack_arg(1, instruction), instruction);
+
+    }
+
+        ip += 4;
+        break;
+
+    case inst::movlh:
+
+    {
+
+        auto heapoffset = local_stack_arg(3, instruction);
+        if (heapoffset == 0) nothing_accessed();
+
+        heap_arg(heapoffset, 8 * local_stack_arg(2, instruction), instruction) = local_stack_arg(1, instruction);
+
+    }
+
+        ip += 4;
+        break;
+
+    case inst::movph:
+
+    {
+
+        auto heapoffset = local_stack_arg(3, instruction);
+        if (heapoffset == 0) nothing_accessed();
+
+        heap_arg(heapoffset, 8 * local_stack_arg(2, instruction), instruction) = arg(1, instruction);
+
+    }
+
+        ip += 4;
+        break;
+
+    case inst::movxh:
+
+    {
+
+        auto heapoffset = local_stack_arg(3, instruction);
+        if (heapoffset == 0) nothing_accessed();
+
+        heap_arg(heapoffset, 8 * local_stack_arg(2, instruction), instruction) = stack_arg(1, instruction);
+
+    }
+
+        ip += 4;
+        break;
+
+    case inst::movhh:
+
+    {
+
+        auto heapoffsetdst = local_stack_arg(4, instruction);
+        if (heapoffsetdst == 0) nothing_accessed();
+
+        auto heapoffsetsrc = local_stack_arg(2, instruction);
+        if (heapoffsetsrc == 0) nothing_accessed();
+
+        heap_arg(heapoffsetdst, 8 * local_stack_arg(3, instruction), instruction) = heap_arg(heapoffsetsrc, 8 * local_stack_arg(1, instruction), instruction);
+
+    }
+
+        ip += 5;
+        break;
+
+    case inst::strlen:
+
+        local_stack_arg(2, instruction) = *((instruction*)(heap + local_stack_arg(1, instruction)) - 1) - 1;
+
+        ip += 3;
+        break;
+
+    case inst::arrlen:
+
+    {
+
+        auto heapoffset = local_stack_arg(1, instruction);
+        if (heapoffset == 0) nothing_accessed();
+
+        local_stack_arg(2, instruction) = *((instruction*)(heap + heapoffset) - 1) / 8;
+
+    }
+
+        ip += 3;
+        break;
+
+    case inst::arrcat:
+
+    {
+
+        auto heapoffset1 = local_stack_arg(1, instruction);
+        if (heapoffset1 == 0) nothing_accessed();
+
+        auto heapoffset2 = local_stack_arg(2, instruction);
+        if (heapoffset2 == 0) nothing_accessed();
+
+        auto arr1 = (instruction*)(heap + heapoffset1);
+        auto arr2 = (instruction*)(heap + heapoffset2);
+
+        auto sz1 = *(arr1 - 1);
+        auto sz2 = *(arr2 - 1);
+
+        auto catresult = alloc(sz1 + sz2);
+        auto arrres = (instruction*)(heap + catresult);
+
+        std::memcpy(arrres, arr1, sz1);
+        std::memcpy(arrres + sz1/8, arr2, sz2);
+
+        local_stack_arg(3, instruction) = catresult;
+
+    }
+
+        ip += 4;
         break;
 
 #define cast_instruction(ltype, rtype, lreg, rreg) case inst::cast##lreg##rreg: local_stack_arg(2, rtype) = (rtype)local_stack_arg(1, ltype); ip += 3; break

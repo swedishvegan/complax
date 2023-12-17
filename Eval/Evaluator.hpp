@@ -68,19 +68,27 @@ namespace Eval {
         int stack_offset = 0;      // How many variables are on the stack within this scope
         int max_stack_growth = 0;  // Maximum relative size that the stack ever grows to within this code body
 
+        bool lh_evaluated = false; // Whether or not the left-hand expression in the most recent assignment has already been evaluated
+        AST::TypeID lh_type = 0;   // Type of the above mentioned expression
+
+        int base_offset = 0;       // Stack offset of left-hand array variable during assignments
+        int index_offset = 0;      // Stack offset of left-hand array index variable during assignments
+
         ptr_BytecodeBlock bytecode;
 
     };
 
     struct ExpressionCompileInfo  { // Information that the NodeEvaluator needs to generate proper bytecode
 
-        enum class LH_AccessMode { None, Direct, Relative };
+        enum class LH_AccessMode { None, Direct, Relative, Heap };
 
         LH_AccessMode lh_access_mode = LH_AccessMode::None; // Mode of access for the value that will be set to the current expression being compiled
 
         instruction lh_index = 0;                           // Index of the above-mentioned value, within the context of lh_access_mode
 
         EvaluatorProgress* cur_progress = nullptr;          // Current code body being processed
+
+        int stack_offset = 0;                               // Current stack offset when generating instructions
 
     };
 
