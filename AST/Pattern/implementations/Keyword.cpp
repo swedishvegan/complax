@@ -35,3 +35,5 @@ AST_IMPL_KEYWORD(returns);
 
 AST_IMPL_KEYWORD(continue);
 AST_IMPL_KEYWORD(break);
+
+AST_IMPL_KEYWORD(let);

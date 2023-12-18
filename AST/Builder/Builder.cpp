@@ -287,6 +287,8 @@ AST::ptr_Pattern AST::Builder::trySuccessor(PatternID cur_ID, int cur_best_start
 	AST_BLDR_ADD_SCANNER(Keyword_continue);
 	AST_BLDR_ADD_SCANNER(Keyword_break);
 
+	AST_BLDR_ADD_SCANNER(Keyword_let);
+
 	// Literals
 
 	AST_BLDR_ADD_SCANNER(Literal);

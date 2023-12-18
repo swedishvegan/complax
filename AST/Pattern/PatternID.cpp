@@ -34,6 +34,8 @@ const char* _PatternID_strings[] = {
 	"Keyword_continue",
 	"Keyword_break",
 
+	"Keyword_let",
+
 	// Literals
 
 	"Literal",

@@ -101,6 +101,7 @@ else { \
 	if (neval->eval_type == AST::Type::Integer) mov_src = I_dirty_cast(neval->value<Integer>()); \
 	else if (neval->eval_type == AST::Type::Decimal) mov_src = I_dirty_cast(neval->value<Decimal>()); \
 	else if (neval->eval_type == AST::Type::Bool) mov_src = I_dirty_cast(neval->value<Bool>()); \
+	else if (neval->eval_type == AST::Type::Ascii) mov_src = I_dirty_cast(neval->value<Ascii>()); \
 	\
 }
 
@@ -734,7 +735,8 @@ void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvalua
 
 				if (lh_type == AST::Type::Bool) in = inst::castbs;
 				else if (lh_type == AST::Type::Integer) in = inst::castis;
-				else in = inst::castds;
+				else if (lh_type == AST::Type::Decimal) in = inst::castds;
+				else in = inst::castas;
 
 				bytecode->addInstruction(in, var_pos_lh, stack_offset + 2);
 				var_pos_lh = stack_offset + 2;

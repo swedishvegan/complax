@@ -20,6 +20,9 @@ AST::Builder_Body_Function::Builder_Body_Function(Code::Loader& loader, int star
 AST_DECL_SUCCESSORS(Builder_Body_Function) {
 	
 	if (require_assignment) { AST_SUCC_ALLOW(Assignment); require_assignment = false; return; }
+	if (require_declaration) { AST_SUCC_ALLOW(Declaration); require_declaration = false; return; }
+
+	AST_SUCC_CASE(Expression) AST_SUCC_ALLOW(Keyword_let);
 
 	if (new_piece) {
 
@@ -41,6 +44,8 @@ AST_DECL_SUCCESSORS(Builder_Body_Function) {
 
 		AST_SUCC_ALLOW(Keyword_continue); 
 		AST_SUCC_ALLOW(Keyword_break);
+
+		AST_SUCC_ALLOW(Keyword_let);
 
 		return;
 

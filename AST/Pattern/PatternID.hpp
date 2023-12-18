@@ -37,6 +37,8 @@ namespace AST {
 		Keyword_continue,
 		Keyword_break,
 
+		Keyword_let,
+
 		// Literals
 
 		Literal,

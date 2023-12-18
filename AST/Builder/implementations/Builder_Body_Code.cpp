@@ -35,6 +35,15 @@ bool AST::Builder_Body_Code::processPattern(ptr_Pattern p) {
 
 	allow_expression = true;
 
+	if (p->ID == AST::PatternID::Keyword_let) {
+
+		require_declaration = true;
+		next_start = p->end.index;
+		
+		return false;
+
+	}
+
 	if (new_piece) {
 
 		is_control_flow = false;
@@ -57,7 +66,7 @@ bool AST::Builder_Body_Code::processPattern(ptr_Pattern p) {
 				return false;
 
 			}
-			
+
 			require_assignment = verified;
 
 			if (require_assignment) Scanner_Assignment::expression = exp;

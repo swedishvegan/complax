@@ -12,6 +12,7 @@ _deps
 *.syntax_tree
 *.bytecode
 *.l
+test.lax
 complax
 lax
 lax-tests

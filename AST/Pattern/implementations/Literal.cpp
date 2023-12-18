@@ -17,7 +17,7 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 		"ascii",
 		"string",
 
-		//"array",
+		"array",
 
 	};
 
@@ -31,7 +31,7 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 		Type::Ascii,
 		Type::String,
 
-		//Type::Array,
+		Type::Array,
 
 	};
 
@@ -82,7 +82,7 @@ AST::Scanner_Literal::Scanner_Literal(Code::Loader& loader, int start, int end, 
 
 	char delimiter = loader[true_start];
 
-	if (delimiter == '"'/* || delimiter == '\''*/) {
+	if (delimiter == '"' || delimiter == '\'') {
 
 		true_start++;
 

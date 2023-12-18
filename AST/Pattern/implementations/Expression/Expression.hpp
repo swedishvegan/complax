@@ -55,7 +55,7 @@ namespace AST {
         string getInfo(int);
 
         Printable* singleLine();
-
+        
         static unsigned long long total_successors_generated;
         
     };

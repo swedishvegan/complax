@@ -15,6 +15,7 @@ using pointer = instruction;
 
 using integer = int64_t;
 using decimal = double;
+using ascii = unsigned char;
 using string = instruction;
 
 char* heap = nullptr;
@@ -153,6 +154,18 @@ inline string typecast_bool_string(bool v) {
     char* str = heap + p_str;
     for (pointer i = 0; i < len; i++) str[i] = v ? _true[i] : _false[i];
     str[len] = (char)0;
+
+    return p_str;
+
+}
+
+inline string typecast_ascii_string(ascii a) {
+
+    string p_str = alloc(2);
+
+    char* str = heap + p_str;
+    str[0] = (char)a;
+    str[1] = (char)0;
 
     return p_str;
 
@@ -585,6 +598,8 @@ int main(int argc, char** argv) {
     cast_instruction(bool, integer, b, i);
     cast_instruction(decimal, bool, d, b);
     cast_instruction(bool, decimal, b, d);
+    cast_instruction(ascii, integer, a, i);
+    cast_instruction(integer, ascii, i, a);
 
 #define str_cast_instruction(ltype, rtype, lreg, rreg) case inst::cast##lreg##rreg: local_stack_arg(2, rtype) = typecast_##ltype##_##rtype(local_stack_arg(1, ltype)); ip += 3; break
 
@@ -594,6 +609,7 @@ int main(int argc, char** argv) {
     str_cast_instruction(decimal, string, d, s);
     str_cast_instruction(string, bool, s, b);
     str_cast_instruction(bool, string, b, s);
+    str_cast_instruction(ascii, string, a, s);
 
 #define op_instruction(op, opname, dt, dtype) \
                                               \
@@ -609,8 +625,10 @@ break
 
     op_instruction(+, add, i, integer);
     op_instruction(+, add, d, decimal);
+    op_instruction(+, add, a, ascii);
     op_instruction(-, sub, i, integer);
     op_instruction(-, sub, d, decimal);
+    op_instruction(-, sub, a, ascii);
     op_instruction(*, mul, i, integer);
     op_instruction(*, mul, d, decimal);
     op_instruction(/, div, i, integer);
@@ -652,17 +670,23 @@ break
     comp_instruction(==, eq, i, integer);
     comp_instruction(==, eq, d, decimal);
     comp_instruction(==, eq, b, bool);
+    comp_instruction(==, eq, a, ascii);
     comp_instruction(!=, neq, i, integer);
     comp_instruction(!=, neq, d, decimal);
     comp_instruction(!=, neq, b, bool);
+    comp_instruction(!= , neq, a, ascii);
     comp_instruction(>, gt, i, integer);
     comp_instruction(>, gt, d, decimal);
+    comp_instruction(>, gt, a, ascii);
     comp_instruction(>=, gte, i, integer);
     comp_instruction(>=, gte, d, decimal);
+    comp_instruction(>=, gte, a, ascii);
     comp_instruction(<, lt, i, integer);
     comp_instruction(<, lt, d, decimal);
+    comp_instruction(<, lt, a, ascii);
     comp_instruction(<=, lte, i, integer);
     comp_instruction(<=, lte, d, decimal);
+    comp_instruction(<=, lte, a, ascii);
 
 #define strcomp_instruction(compname)       \
                                             \

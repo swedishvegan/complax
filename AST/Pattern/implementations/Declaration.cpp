@@ -1,6 +1,6 @@
 #include "./Declaration.hpp"
 
-AST::Declaration::Declaration() : Pattern(PatternID::Declaration) { }
+AST::Declaration::Declaration() : Pattern(PatternID::Declaration) { precedence = -1; }
 
 string AST::Declaration::getInfo(int) { return sym->oneLineDescription().c_str(); }
 

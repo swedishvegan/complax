@@ -28,6 +28,7 @@ namespace AST {
 		bool next_is_loop_body = false;
 		bool new_piece = true;
 		bool require_assignment = false;
+		bool require_declaration = false;
 		bool allow_expression = true;
 		bool allow_code_body = false;      
 		bool is_control_flow = false;

@@ -32,6 +32,8 @@ AST::Pattern* AST::GlobalScopeBuilder::main_function = nullptr;
 
 AST_DECL_SUCCESSORS(GlobalScopeBuilder) {
 
+	AST_SUCC_CASE(Keyword_let) { AST_SUCC_ALLOW(Declaration); return; }
+
 	bool var_decl = (AST_SUCC_ISTYPE(Expression) && last_pattern_was_declaration);
 	bool returns_exp = (AST_SUCC_ISTYPE(Expression) && allow_returns_exp);
 
@@ -57,6 +59,8 @@ AST_DECL_SUCCESSORS(GlobalScopeBuilder) {
 
 		AST_SUCC_ALLOW(Declaration);
 		AST_SUCC_ALLOW(Expression);
+
+		AST_SUCC_ALLOW(Keyword_let);
 
 		AST_SUCC_ALLOW(Done);
 

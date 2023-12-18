@@ -104,9 +104,7 @@ Find Next Leap Year {    // implementing the function "next leap year after {yea
 
 ### Pre-compiled binaries <a name="pt2.1"></a>
 
-The quickest way to get started with Lax is to simply download one of the pre-compiled releases under the "Releases" tab on this GitHub page. There is a release for Windows (compiled for x86_64), one for MacOS (compiled for Apple's ARM64 chips), and one for Ubuntu (compiled for x86_64). I'm not sure whether the Ubuntu releases would be compatible with other Linux distros, but if not it's easy enough to just compile from source (see the next section).
-
-__NOTE: The source code in the releases zip files is out of date. Please directly clone or download the repository in order to view the source code.__
+Sorry, I don't have precompiled binaries yet for the current release of Lax.
 
 ### Building the complax library from source <a name="pt2.1"></a>
 
@@ -194,6 +192,8 @@ start program {
 This simple program does nothing but print out the number "10" and then print a newline before exiting.
 
 You can define variables in local scope (inside brackets) or global scope (outside brackets). Just know that variables will not be accessible outside the scope they were created in.
+
+If you wish, you can also add the ```let``` keyword before a declaration. This can help disambiguate variable names, as explained in [Dealing with ambiguity](#pt3.5).
 
 In Lax, you are not allowed to declare a local variable and then never use it. The following code:
 
@@ -311,13 +311,15 @@ Lax comes with four built-in "primitive" data types: &nbsp; ```integer```, ```de
  - ```integer``` values are for whole numbers, like 1, -1, 2, -2, etc.
  - ```decimal``` values are for any numeric value, either whole numbers or fractions, like 3.14, 1.618, etc.
  - ```boolean``` values are either true or false
- - ```string``` values are used for holding ASCII text and are delimited with single quotes, like 'Hello world', 'What's your name?', etc.
+ - ```ascii``` values are single 8-bit ascii characters and are delimited with single quotes, like 'A', '!', etc.
+ - ```string``` values are arrays of ASCII text and are delimited with double quotes, like "Hello world", "What's your name?", etc.
 
 Each data type is 64-bit. When you use a literal of any of these types in your code, the compiler will automatically detect its data type using the following heuristics:
 1. If the literal is either ```true``` or ```false```, it is a boolean
-2. Otherwise if the literal is delimited by single quotes, it is a string
-3. Otherwise if the literal is numeric and has a decimal point or an exponent (i.e. 1.23e10), it is a decimal
-4. Otherwise, it is an integer
+2. Otherwise if the literal is delimited by single quotes, it is an ascii character
+3. Otherwise if the literal is delimited by double quotes, it is a string
+4. Otherwise if the literal is numeric and has a decimal point or an exponent (i.e. 1.23e10), it is a decimal
+5. Otherwise, it is an integer
 
 You can also create arrays, which are detailed in the next section, [Arrays](#pt3.1.7).
 
@@ -329,7 +331,8 @@ start program {
     a = integer // Variable "a" is assigned the value 0 with integer type
     b = decimal // Variable "b" is assigned the value 0 with decimal type
     c = boolean // Variable "c" is assigned the value "false" with boolean type
-    d = string  // Variable "d" is assigned the string value 'string' (this is actually a bug which will be fixed shortly; it is supposed to be the empty string)
+    d = ascii   // Variable "d" is assigned the ascii character with ID 0
+    e = string  // Variable "e" is assigned an empty string
 
 }
 ```
@@ -520,10 +523,10 @@ start program {
 
 Here's a sample of the output from this code:
 ```
-swedish vegan
-swedish vegan is what you just said to me.
+swedishvegan
+swedishvegan is what you just said to me.
 42
-Took 0.185983 seconds to count to 10000000.
+Took 0.040928 seconds to count to 10000000.
 ```
 
 #### Operators and comparators <a name="pt3.3.2"></a>
@@ -1192,6 +1195,44 @@ You will get this somewhat vague error message:
 ```
 
 This is because the compiler was trying to parse the expression ```output Variable 2``` but it failed because the variable called ```Variable 2``` was never created. If you got this error message, you would have to go look back in the relevant part of the code to figure out what happened, and it usually doesn't take long to figure it out. This is one of the unfortunate tradeoffs of using such a flexible language.
+
+Alternatively, suppose the function ```V``` doesn't take any arguments:
+
+```
+function { V } { return 0 }
+
+start program {
+
+    Variable 1 = 20
+
+    output Variable 1
+
+}
+```
+
+This introduces a completely new problem. Since the function call ```V``` by itself is valid syntax (unlike in the last example), the compiler thinks you're trying to call the function ```V``` and then create a variable called ```ariable1```. Thus, you get another vague-looking error message:
+
+```
+ ERROR: Non-whitespace character(s) in builder (3.16-9.1) following final pattern:
+ | Expression         (5.20-7.13)
+ Compilation finished in 0.000 seconds with 0 detected memory leak(s).
+```
+
+How do you let the compiler know you're trying to create a variable named ```Variable 1```? The answer is actually very simple. Recall from earlier that you can precede any declaration with the ```let``` keyword. This lets the compiler know that whatever comes next is a declaration. Thus, this problem can be solved like so:
+
+```
+function { V } { return 0 }
+
+start program {
+
+    let Variable 1 = 20
+
+    output Variable 1
+
+}
+```
+
+This code compiles and runs exactly as you would expect.
 
 Let's also briefly discuss the efficiency of expression parsing. This new method of parsing an expression might sound scary at first. Surely evaluating every possible interpretation must be horribly inefficient? Actually, in practice it is rarely an issue, because the overwhelming majority of branches that are created end up being garbage and are killed off immediately. Thus, the branching factor of the expression parser will essentially never be high enough to cause exponential explosion in practice.
 

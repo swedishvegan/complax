@@ -73,6 +73,8 @@ struct Scanner_Keyword_##classname : public Scanner_Keyword<Keyword_##classname>
 	AST_DECL_KEYWORD(continue);
 	AST_DECL_KEYWORD(break);
 
+	AST_DECL_KEYWORD(let);
+
 }
 
 #endif

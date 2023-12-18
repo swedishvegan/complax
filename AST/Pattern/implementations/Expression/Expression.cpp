@@ -17,7 +17,7 @@ unsigned long long AST::Expression::total_successors_generated = 0;
 AST::Scanner_Expression::Scanner_Expression(Code::Loader& loader, int start, int end, int cur_best_start, SymbolTableLinker symbols, bool is_top_level)
 	: Scanner(loader, start, end, cur_best_start), loader(loader), start(start), end(end), symbols(symbols), is_top_level(is_top_level) {
 
-	if (cache) getWinner(node_cache[start]);
+	if (cache) getWinner(node_cache[start]); if (result != nullptr)
 	if (result != nullptr) return;
 
 	ExpressionStack expression_stack;
@@ -696,7 +696,7 @@ void AST::Scanner_Expression::getWinner(NodeList& candidates) {
 	while (loader(cur_end).is_whitespace && cur_end < loader.size()) cur_end++;
 
 	if (cur_end == loader.size()) { cur_end = winner->end; } 
-	else if (loader[cur_end] == ',' || loader[cur_end] == ':') cur_end++; 
+	else if (loader[cur_end] == ',' || loader[cur_end] == ':' || loader[cur_end] == ';') cur_end++; 
 	else cur_end = winner->end;
 	
 	winner->end = cur_end;
