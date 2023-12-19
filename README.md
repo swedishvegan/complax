@@ -38,7 +38,6 @@
 
 **NOTE: Lax is currently still in development. I am making the project public in order to allow feedback, suggestions, and possibly outside contributions while the language is early in its development phase. The following features are still in progress and will be released in the near future, more or less in this order:**
 
- - **Arrays**
  - **User-defined structures**
  - **Garbage collection**
  - **More detailed error messages**
