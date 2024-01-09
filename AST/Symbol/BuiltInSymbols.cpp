@@ -73,8 +73,14 @@ AST::ptr_SymbolTable AST::genDefaultSymbolTable() {
 	def_table->add(definePattern("{x} <= {y}",             "is,c",                comp_desc,  SymbolID::Function,   Precedence(COMP_PREC),           Precedence(COMP_PREC)));
 
 	def_table->add(definePattern("typeof {x}",              nullptr,              teval_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
-	def_table->add(definePattern("{x} as {y}",              "idbcs,idbcs",        tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
-	def_table->add(definePattern("{x} like {y}",            "idbcs,idbcs",        tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} as {y}",              "ids,ids",            tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} as {y}",              "i,c",                tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} as {y}",              "c,i",                tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} as {y}",              "c,s",                tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} like {y}",            "ids,ids",            tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} like {y}",            "i,c",                tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} as {y}",              "c,i",                tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
+	def_table->add(definePattern("{x} like {y}",            "c,s",                tcast_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
 	def_table->add(definePattern("{x} is {y}",              nullptr,              tcomp_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
 	def_table->add(definePattern("{x} is like {y}",         nullptr,              tcomp_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
 	def_table->add(definePattern("{x} isn't {y}",           nullptr,              tcomp_desc, SymbolID::Function,   Precedence(TLH_PREC),            Precedence(TRH_PREC)));
@@ -97,7 +103,7 @@ AST::ptr_SymbolTable AST::genDefaultSymbolTable() {
 
 	def_table->add(definePattern("{x} array",               nullptr,              arr_desc,   SymbolID::Function,   Precedence(ARR_PREC),            Precedence(ARR_PREC)));
 	def_table->add(definePattern("{x} array of length {y}", "*,i",                arr_desc,   SymbolID::Function,   Precedence(ARR_PREC),            Precedence()));
-	def_table->add(definePattern("{x} [ {y} ]",             "a,i",                arr_desc,   SymbolID::Function,   Precedence(ARR_PREC),            Precedence(ARR_PREC),              true));
+	def_table->add(definePattern("{x} [ {y} ]",             "as,i",               arr_desc,   SymbolID::Function,   Precedence(ARR_PREC),            Precedence(ARR_PREC),              true));
 	def_table->add(definePattern("length of {x}",           "as",                 arr_desc,   SymbolID::Function,   Precedence(ARR_PREC),            Precedence(ARR_PREC)));
 
 	return def_table;

@@ -6,6 +6,7 @@
 #include "./../AST/Type/Type.hpp"
 #include "./BytecodeBlock.hpp"
 #include "./ProgramDataTable.hpp"
+#include "./Address.hpp"
 
 /*
 
@@ -53,6 +54,7 @@ namespace Eval {
         ptr_BytecodeBlock nest_header;     // Condition of an "if" or "while" CodePiece
         bool nest_header_is_while = false; // Whether nest_header is a "while" condition
         int nest_header_start = 0;         // Beginning (local) instruction of the current nest header, if there is one
+        Address nest_header_address;       // Address of the condition evaluated by the nest header
         ptr_BytecodeBlock nest_body1;      // "if" or "while" code
         ptr_BytecodeBlock nest_body2;      // "else" code
 
@@ -70,9 +72,9 @@ namespace Eval {
 
         bool lh_evaluated = false; // Whether or not the left-hand expression in the most recent assignment has already been evaluated
         AST::TypeID lh_type = 0;   // Type of the above mentioned expression
+        Address lh_address;        // Address of left-hand expression
 
-        int base_offset = 0;       // Stack offset of left-hand array variable during assignments
-        int index_offset = 0;      // Stack offset of left-hand array index variable during assignments
+        bool is_else_code = false; // Whether or not this code belongs to the "else" of an "if" statement
 
         ptr_BytecodeBlock bytecode;
 
@@ -80,11 +82,7 @@ namespace Eval {
 
     struct ExpressionCompileInfo  { // Information that the NodeEvaluator needs to generate proper bytecode
 
-        enum class LH_AccessMode { None, Direct, Relative, Heap };
-
-        LH_AccessMode lh_access_mode = LH_AccessMode::None; // Mode of access for the value that will be set to the current expression being compiled
-
-        instruction lh_index = 0;                           // Index of the above-mentioned value, within the context of lh_access_mode
+        Address lh_address;                                 // Info on how to access the LH of the expression in memory
 
         EvaluatorProgress* cur_progress = nullptr;          // Current code body being processed
 

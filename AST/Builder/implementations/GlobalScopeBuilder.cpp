@@ -235,7 +235,7 @@ bool AST::GlobalScopeBuilder::processPattern(ptr_Pattern p) {
 			decl->sym->definition = p();
 
 			auto exp = p.cast<Expression>();
-			Eval::NodeEvaluator evaluator(exp(), true);
+			Eval::NodeEvaluator evaluator(exp(), true, false, true);
 
 			if (evaluator.error.error) {
 

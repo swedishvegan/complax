@@ -43,7 +43,7 @@ Eval::Evaluator::Evaluator() {
     start_evaluator->num_vars.push_back(0);
     start_evaluator->num_vars.push_back(num_vars);
     start_evaluator->bytecode = new BytecodeBlock();
-    start_evaluator->bytecode->addInstruction(inst::sass, 0);
+    start_evaluator->bytecode->addInstruction(inst::scpbeg, start_evaluator->stack_offset);
 
     stack.push(start_evaluator);
     bytecode_blocks.push_back(start_evaluator->bytecode);
@@ -62,7 +62,7 @@ Eval::Evaluator::Evaluator() {
 
         bc->global_index = offset;
         offset += bc->instructions.size();
-
+        
     }
 
     for (auto bc : bytecode_blocks)

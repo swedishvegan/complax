@@ -7,7 +7,7 @@ Eval::BytecodeBlock::BytecodeBlock() { }
 void Eval::BytecodeBlock::reset() { instructions.clear(); }
 
 void Eval::BytecodeBlock::mergeWith(BytecodeBlock& block) { 
-    
+
     for (auto hj : block.jumps) { 
         
         hj.offset += instructions.size(); 
@@ -18,320 +18,101 @@ void Eval::BytecodeBlock::mergeWith(BytecodeBlock& block) {
     }
     for (auto in : block.instructions) instructions.push_back(in);
 
-    if (block.max_stack_growth > max_stack_growth) max_stack_growth = block.max_stack_growth;
-    
 }
+
+#define _max(a, b) ( (a > b) ? a : b )
 
 void Eval::BytecodeBlock::call(void* ref, int num_args) {
 
     instructions.push_back(I(inst::call));
     instructions.push_back(I(num_args));
     instructions.push_back(I(0));
+    instructions.push_back(I(0));
+    instructions.push_back(I(0));
+    instructions.push_back(I(0));
 
-    auto hj = HangingJump { (int)instructions.size() - 3, 2, ref };
+    auto hj = HangingJump { (int)instructions.size() - 6, 2, ref };
     jumps.push_back(hj);
 
 }
 
-int _inst_lengths[] = {
+void Eval::BytecodeBlock::addInstruction(instruction in) { 
+    
+    ibuf.push_back(I(in));
 
-    0,
-    1,
-    1,
-    2,
-    2,
-    0,
-    1,
-    1,
-    0,
-    1,
-    1,
-    -1,
-    2,
-    2,
-    3,
-    3,
-    2,
-    2,
-    2,
-    3,
-    2,
-    2,
-    2,
-    3,
-    3,
-    3,
-    3,
-    4,
-    2,
-    2,
-    3,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    2,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    3,
-    2,
-    2
+    for (auto in : ibuf) instructions.push_back(in);
+    ibuf.clear();
+    
+}
 
-};
+void Eval::BytecodeBlock::addInstruction(Address addr) { 
+    
+    ibuf.push_back(I(addr.access_type));
+    ibuf.push_back(addr.args[0]);
+    if (addr.num_args == 2) ibuf.push_back(addr.args[1]);
 
-const char* _inst_names[] = {
+    for (auto in : ibuf) instructions.push_back(in);
+    ibuf.clear();
+    
+}
 
-    "exit  ",
-    "sass  ",
-    "j     ",
-    "jc    ",
-    "call  ",
-    "ret   ",
-    "inp   ",
-    "out   ",
-    "tmrs  ",
-    "tmrr  ",
-    "rand  ",
-    "gc    ",
-    "halloc",
-    "hinit ",
-    "lhcpy ",
-    "hhcpy ",
-    "movll ",
-    "movpl ",
-    "movxl ",
-    "movhl ",
-    "movlx ",
-    "movpx ",
-    "movxx ",
-    "movhx ",
-    "movlh ",
-    "movph ",
-    "movxh ",
-    "movhh ",
-    "strlen",
-    "arrlen",
-    "arrcat",
-    "castid",
-    "castdi",
-    "castib",
-    "castbi",
-    "castdb",
-    "castbd",
-    "castsi",
-    "castis",
-    "castsd",
-    "castds",
-    "castsb",
-    "castbs",
-    "castas",
-    "castai",
-    "castia",
-    "addi  ",
-    "addd  ",
-    "adda  ",
-    "subi  ",
-    "subd  ",
-    "suba  ",
-    "muli  ",
-    "muld  ",
-    "divi  ",
-    "divd  ",
-    "andi  ",
-    "andb  ",
-    "ori   ",
-    "orb   ",
-    "modi  ",
-    "powi  ",
-    "powd  ",
-    "adds  ",
-    "eqi   ",
-    "eqd   ",
-    "eqb   ",
-    "eqa   ",
-    "neqi  ",
-    "neqd  ",
-    "neqb  ",
-    "neqa  ",
-    "gti   ",
-    "gtd   ",
-    "gta   ",
-    "gtei  ",
-    "gted  ",
-    "gtea  ",
-    "lti   ",
-    "ltd   ",
-    "lta   ",
-    "ltei  ",
-    "lted  ",
-    "ltea  ",
-    "eqs   ",
-    "neqs  ",
-    "gts   ",
-    "gtes  ",
-    "lts   ",
-    "ltes  ",
-    "noti  ",
-    "notb  "
-
-};
-
-#define _inst_length(in) (_inst_lengths[in])
-#define _inst_name(in) (_inst_names[in])
+#define _line_number_str() ("\n" + indent(alignment + 1) + AST::pad("(" + std::to_string(idx) + ")", 11))
 
 string Eval::BytecodeBlock::toString(int alignment) {
 
     if (instructions.size() == 0) return "Bytecode (empty)";
 
+    if (!Eval::inst_initialized) Eval::inst_init();
+
     string s = "Bytecode";
     int idx = 0;
 
-    while (idx < (int)instructions.size()) {
+    while (idx < instructions.size()) {
 
-        auto in = instructions[idx];
+        auto inst_type = instructions[idx];
+        auto inst_info_idx = Eval::inst_info_offsets[inst_type];
+        auto num_args = Eval::inst_info[inst_info_idx];
+        auto inst_name = Eval::inst_names[inst_type];
 
-        auto this_len = _inst_length(in);
-        auto this_name = _inst_name(in);
+        s += _line_number_str() + " " + string(inst_name) + "        ";
 
-        s += "\n" + indent(alignment + 1) + AST::pad("(" + std::to_string(idx) + ")", 11) + " " + this_name + "      ";
+        inst_info_idx++;
+        idx++;
 
-        for (int i = 0; i < this_len; i++) {
+        for (int arg = 0; arg < num_args; arg++) {
 
-            idx++;
-            s += AST::pad(std::to_string(instructions[idx]), 7) + " ";
+            if (Eval::inst_info[inst_info_idx + arg]) {
+
+                auto access_dtype_num = instructions[idx] / 16;
+                auto access_type = instructions[idx] % 16;
+                auto access_name = Eval::access_names[access_type];
+                auto access_dtype = (access_dtype_num == 2) ? "b." : ((access_dtype_num == 1) ? "d." : "i.");
+                auto num_access_args = (access_type <= access::imm) ? 2 : 3;
+
+                s += _line_number_str() + "               " + string(access_dtype) + string(access_name) + "      ";
+                
+                idx++;
+
+                for (int sk = 1; sk < num_access_args; sk++) {
+
+                    s += AST::pad(std::to_string(instructions[idx]), 7) + " ";
+                    idx++;
+
+                }
+
+            }
+            
+            else {
+
+                s += _line_number_str() + "               " + AST::pad(std::to_string(instructions[idx]), 7);
+                idx++;
+
+            }
 
         }
-
-        idx++;
 
     }
 
     return s;
 
-}
-
-#define _is_between(i1, i2) in >= i1 && in <= i2
-#define _check_arg(i) if (instructions[idx + i] > max_stack_growth) max_stack_growth = instructions[idx + i];
-
-void Eval::BytecodeBlock::processInstruction() {
-
-    int idx = instructions.size();
-
-    for (auto in : ibuf) instructions.push_back(in);
-    ibuf.clear();
-
-    auto in = instructions[idx];
-    auto this_len = _inst_length(in);
-
-    if (in == inst::jc) { _check_arg(2); return; }
-    if (_is_between(inst::inp, inst::out)) { _check_arg(1); return; }
-    if (in == inst::tmrr) { _check_arg(1); return; }
-    if (in == inst::rand) { _check_arg(1); return; }
-    if (_is_between(inst::halloc, inst::hinit)) { _check_arg(1); _check_arg(2); return; }
-    if (_is_between(inst::lhcpy, inst::hhcpy)) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
-    if (in == inst::movll) { _check_arg(1); _check_arg(2); return; }
-    if (in == inst::movpl) { _check_arg(2); return; }
-    if (in == inst::movxl) { _check_arg(2); return; }
-    if (in == inst::movhl) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
-    if (in == inst::movlx) { _check_arg(1); return; }
-    if (in == inst::movhx) { _check_arg(1); _check_arg(2); return; }
-    if (in == inst::movlh) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
-    if (in == inst::movph) { _check_arg(2); _check_arg(3); return; }
-    if (in == inst::movxh) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
-    if (in == inst::movhh) { _check_arg(1); _check_arg(2); _check_arg(3); _check_arg(4); return; }
-    if (in == inst::arrlen) { _check_arg(1); _check_arg(2); return; }
-    if (_is_between(inst::castid, inst::castia)) { _check_arg(1); _check_arg(2); return; }
-    if (_is_between(inst::addi, inst::ltes)) { _check_arg(1); _check_arg(2); _check_arg(3); return; }
-    if (_is_between(inst::noti, inst::notb)) { _check_arg(1); _check_arg(2); }
-
-}
-
-void Eval::BytecodeBlock::eliminateRedundantMov(int starting_idx) {
-    /*
-    if (starting_idx < 0) return;
-
-    instruction i1 = instructions[starting_idx];
-    if (i1 < I(inst::movll) || i1 > I(inst::movxx)) return;
-
-    auto in = (inst)i1;
-
-    if (in == inst::movll || in == inst::movxx)
-
-    i1 -= I(inst::movll);
-    i2 -= I(inst::movll);
-
-    bool i1_dst_local = i1 < 3;
-    bool i1_dst_direct = i1 >= 3;
-
-    bool i2_src_local = i2 % 3 == 0;
-    bool i2_src_direct = i2 % 3 == 2;
-    
-    movll,    // Arguments: 2,    Purpose: moves the 8-byte value at SP + arg0 to SP + arg1
-    movpl,    // Arguments: 2,    Purpose: moves the 8-byte value arg0 to SP + arg1
-    movxl,    // Arguments: 2,    Purpose: moves the 8-byte value at arg0 to SP + arg1
-    movlx,    // Arguments: 2,    Purpose: moves the 8-byte value at SP + arg0 to arg1
-    movpx,    // Arguments: 2,    Purpose: moves the 8-byte value arg0 to arg1
-    movxx,
-    
-    if ((i1_dst_local && i2_src_local) || (i1_dst_direct && i2_src_direct)) {
-
-        auto inew = 3 * (i2 / 3) + i1 % 3;
-        inst in = (inst)(inew + I(inst::movll));
-
-        instructions[starting_idx] = I(in);
-        instructions[starting_idx + 2] = instructions[starting_idx + 5];
-
-    }
-*/
 }

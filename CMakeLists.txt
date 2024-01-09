@@ -23,14 +23,19 @@ add_executable(lax lax.cpp)
 add_executable(complax complax.cpp)
 
 file(GLOB_RECURSE COMPLAX_SOURCES 
-	AST/*.hpp
 	AST/*.cpp
-	Code/*.hpp
 	Code/*.cpp
-	Eval/*.hpp
 	Eval/*.cpp
-	util/*.hpp
 	util/*.cpp
 )
 
 target_sources(complax PRIVATE ${COMPLAX_SOURCES})
+
+file(GLOB_RECURSE LAX_SOURCES 
+	vm/*.cpp
+	jit/deps/sljit_src/sljitLir.c
+	jit/MethodJit.cpp
+	Eval/Instruction.cpp
+)
+
+target_sources(lax PRIVATE ${LAX_SOURCES})

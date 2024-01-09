@@ -47,7 +47,7 @@ AST_DECL_SUCCESSORS(Builder_Body_Precedence) {
 bool AST::Builder_Body_Precedence::processPattern(ptr_Pattern p) {
 
 	auto exp = p.cast<Expression>();
-	Eval::NodeEvaluator evaluator(exp(), true);
+	Eval::NodeEvaluator evaluator(exp(), true, false, true);
 
 	if (evaluator.error.error) {
 

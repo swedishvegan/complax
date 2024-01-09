@@ -1,31 +1,10 @@
+
 #include <iostream>
 #include <fstream>
-#include <cstring>
-#include <cmath>
-#include <random>
-#include "./util/Timer.hpp"
-#include "./Eval/Instruction.hpp"
-
-#define stack_size (1<<23)
-#define initial_heap_size (1<<23)
+#include "./vm/BuiltInFunctions.hpp"
+#include "./jit/MethodJit.hpp"
 
 using namespace Eval;
-
-using pointer = instruction;
-
-using integer = int64_t;
-using decimal = double;
-using ascii = unsigned char;
-using string = instruction;
-
-char* heap = nullptr;
-pointer hp = 0;
-
-instruction* _stack = nullptr;
-pointer _sp = 0;
-
-instruction* _program = nullptr;
-pointer _ip = 0;
 
 bool init(std::string filename) {
 
@@ -74,14 +53,14 @@ bool init(std::string filename) {
 
         }
 
-        _stack = new instruction[stack_size];
-        _sp = stack_data_size;
+        stack = new instruction[stack_size];
+        sp = stack_data_size;
 
-        input_file.read((char*)_stack, stack_data_size * sizeof(instruction));
+        input_file.read((char*)stack, stack_data_size * sizeof(instruction));
         input_file >> instructions_size;
 
-        _program = new instruction[instructions_size];
-        input_file.read((char*)_program, instructions_size * sizeof(instruction));
+        program = new instruction[instructions_size];
+        input_file.read((char*)program, instructions_size * sizeof(instruction));
         
     }
     catch(...) {
@@ -95,219 +74,198 @@ bool init(std::string filename) {
 
 }
 
-char strbuffer[2048];   // Used for cstring operations like scanf
-bool first_read = true; // getchar() if not first read
+bool single_byte = false;
 
-pointer alloc(instruction size) {
+inline char* next_arg() {
 
-    hp += (8 - hp%8) % 8;
-    *(instruction*)(heap + hp) = size;
-
-    hp += size + 8;
-    return hp - size;
+    ip++;
+    return (char*)(program + (ip - 1));
 
 }
 
-string alloc_string(const char* source) {
+#define arg(T) *(T*)next_arg()
 
-    pointer size = 0;
-    while (source[size]) size++;
+inline char* next_addr() {
 
-    pointer p_str = alloc(size + 1);
-    char* str = heap + p_str;
+    instruction mode = program[ip] % 16;
+    single_byte = false;
 
-    for (pointer i = 0; i < size; i++) str[i] = source[i];
-    str[size] = (char)0;
-    
-    return p_str; 
+    switch (mode) {
 
-}
+    case access::local:
 
-// Below are some typecast implementations used for various "cast" instructions
+        ip += 2;
+        return (char*)(stack + sp + program[ip - 1]);
 
-#define typecast_impl(name, primitive, format)                              \
-                                                                            \
-inline string typecast_##name##_string(primitive v) {                       \
-                                                                            \
-    pointer len = (pointer)snprintf(strbuffer, 256, format, v);             \
-    string p_str = alloc(len + 1);                                          \
-                                                                            \
-    char* str = heap + p_str;                                               \
-    for (pointer i = 0; i < len; i++) str[i] = strbuffer[i];                \
-    str[len] = (char)0;                                                     \
-                                                                            \
-    return p_str;                                                           \
-                                                                            \
-}
+    case access::global:
 
-typecast_impl(integer, long, "%ld")
-typecast_impl(decimal, decimal, "%f")
+        ip += 2;
+        return (char*)(stack + program[ip - 1]);
 
-const char* _true = "true";
-const char* _false = "false";
+    case access::imm:
 
-inline string typecast_bool_string(bool v) {
+        ip += 2;
+        return (char*)(program + (ip - 1));
 
-    pointer len = v ? 4 : 5;
-    string p_str = alloc(len + 1);
+#define local_arg(n) *(stack + sp + program[ip + n - 3])
+#define global_arg(n) *(stack + program[ip + n - 3])
 
-    char* str = heap + p_str;
-    for (pointer i = 0; i < len; i++) str[i] = v ? _true[i] : _false[i];
-    str[len] = (char)0;
+    case access::heap1ll:
 
-    return p_str;
+        ip += 3; single_byte = true;
+        return (char*)(heap + local_arg(1) + local_arg(2));
 
-}
+    case access::heap1gl:
 
-inline string typecast_ascii_string(ascii a) {
+        ip += 3; single_byte = true;
+        return (char*)(heap + global_arg(1) + local_arg(2));
 
-    string p_str = alloc(2);
+    case access::heap1lg:
 
-    char* str = heap + p_str;
-    str[0] = (char)a;
-    str[1] = (char)0;
+        ip += 3; single_byte = true;
+        return (char*)(heap + local_arg(1) + global_arg(2));
 
-    return p_str;
+    case access::heap1gg:
 
-}
+        ip += 3; single_byte = true;
+        return (char*)(heap + global_arg(1) + global_arg(2));
 
-inline decimal typecast_string_decimal(string s) { return (decimal)atoll(heap + s); }
+    case access::heap1li:
 
-inline integer typecast_string_integer(string s) { return (integer)atof(heap + s); }
+        ip += 3; single_byte = true;
+        return (char*)(heap + local_arg(1) + program[ip - 1]);
 
-inline bool typecast_string_bool(string s) { return strcmp(heap + s, _true) == 0; }
+    case access::heap1gi:
 
-inline string stradd(string p_s1, string p_s2) {
+        ip += 3; single_byte = true;
+        return (char*)(heap + global_arg(1) + program[ip - 1]);
 
-    const char* s1 = heap + p_s1;
-    const char* s2 = heap + p_s2;
 
-    pointer size1 = 0;
-    while (s1[size1]) size1++;
+    case access::heap8ll:
 
-    pointer size2 = 0;
-    while (s2[size2]) size2++;
+        ip += 3;
+        return (char*)(heap + local_arg(1) + 8 * local_arg(2));
 
-    auto size = size1 + size2;
-    string p_str = alloc(size + 1);
-    auto str = heap + p_str;
+    case access::heap8gl:
 
-    for (pointer i = 0; i < size1; i++) str[i] = s1[i];
-    for (pointer i = 0; i < size2; i++) str[size1 + i] = s2[i];
+        ip += 3;
+        return (char*)(heap + global_arg(1) + 8 * local_arg(2));
 
-    str[size] = (char)0;
-    return p_str;
+    case access::heap8lg:
 
-}
+        ip += 3;
+        return (char*)(heap + local_arg(1) + 8 * global_arg(2));
 
-inline integer intpow(integer base, integer exp) {
+    case access::heap8gg:
 
-	integer result = 1;
-	while (exp > 0) { if (exp % 2) result *= base; exp /= 2; base *= base; }
+        ip += 3;
+        return (char*)(heap + global_arg(1) + 8 * global_arg(2));
 
-	return result;
+    case access::heap8li:
+
+        ip += 3;
+        return (char*)(heap + local_arg(1) + 8 * program[ip - 1]);
+
+    case access::heap8gi:
+
+        ip += 3;
+        return (char*)(heap + global_arg(1) + 8 * program[ip - 1]);
+
+    default:
+
+        return nullptr;
+
+    }
 
 }
 
-#define strcomp_impl(op_name, comp)                            \
-                                                               \
-inline bool str##op_name(string p_s1, string p_s2) {           \
-                                                               \
-    const char* s1 = heap + p_s1;                              \
-    const char* s2 = heap + p_s2;                              \
-                                                               \
-    return strcmp(s1, s2) comp 0;                              \
-                                                               \
-}
+#define addr(T) *(T*)next_addr()
 
-strcomp_impl(eq, ==)
-strcomp_impl(neq, !=)
-strcomp_impl(gte, >=)
-strcomp_impl(gt, >)
-strcomp_impl(lte, <=)
-strcomp_impl(lt, <)
+#define localStackElement(T, idx) (*(T*)(stack + sp + idx))
 
 int main(int argc, char** argv) {
-
+    
     if (argc < 2) { std::cout << "Invalid number of arguments.\n"; return 1; }
 
     srand(clock());
 
-    pointer ip = 0, sp = 0;
-
-    instruction* stack = nullptr;
-    instruction* program = nullptr;
-
-#define stack_element(i, T) *(T*)(stack + i)    
-#define local_stack_element(i, T) *(T*)(stack + sp + i)
-#define arg(i, T) *(T*)(program + ip + i)
-#define stack_arg(i, T) stack_element(arg(i, instruction), T)
-#define local_stack_arg(i, T) local_stack_element(arg(i, instruction), T)
-#define finish(code) if (heap) delete[] heap; if (_stack) delete[] _stack; if (_program) delete[] _program; return code
-#define heap_arg(base, index, T) (*(T*)(heap + base + index))
-
-#define nothing_accessed() { std::cout << "\nAttempt to access nothing.\n"; return 1; }
+#define finish(code) if (heap) delete[] heap; if (stack) delete[] stack; if (program) delete[] program; return code
+#define nothing_accessed() { std::cout << "\nAttempt to access nothing.\n"; finish(1); }
 
     if (!init(argv[1])) { finish(1); }
 
-    stack = _stack;
-    program = _program;
-
-    sp = _sp;
-
-    Timer timer;
-
-    while (true) switch (program[ip]) {
-
+    timer.reset();
+    
+    while (true) switch (program[ip - 1]) {
+    
     case inst::exit:
 
         finish(0);
 
-    case inst::sass:
+    case inst::begfnc:
 
-        if (sp + arg(1, instruction) >= stack_size) {
-
-            printf("\nStack overflow.\n");
-            finish(1);
-
-        }
-
-        ip += 2;
-        break;
+        arg(instruction);
+        end_case();
 
     case inst::j:
 
-        ip = arg(1, instruction);
-        break;
+        ip = arg(instruction);
+        end_case();
 
     case inst::jc:
 
-        ip = local_stack_arg(2, bool) ? arg(1, instruction) : ip + 3;
-        break;
+        {
+
+            auto jumptarget = arg(instruction);
+            auto condition = !addr(bool);
+
+            ip = condition ? jumptarget : ip;
+
+        }
+        
+        end_case();
 
     case inst::call:
 
     {
-
+        
         auto sp_restore = sp;
-        auto ip_restore = ip + 3;
+        auto ip_restore = ip + 5;
 
-        sp += arg(1, instruction);
-        ip = arg(2, instruction);
+        sp += arg(instruction);
+        ip = arg(instruction);
 
-        local_stack_element(0, instruction) = sp_restore;
-        local_stack_element(1, instruction) = ip_restore;
+        localStackElement(instruction, 0) = sp_restore;
+        localStackElement(instruction, 1) = ip_restore;
 
     }
 
-        break;
+        end_case();
 
     case inst::ret:
 
-        ip = local_stack_element(1, instruction);
-        sp = local_stack_element(0, instruction);
+        ip = localStackElement(instruction, 1);
+        sp = localStackElement(instruction, 0);
 
-        break;
+        end_case();
+
+    case inst::scpbeg:
+
+    {
+
+        auto jit = method_jit::jit();
+        jit.func((integer)(stack + sp));
+
+        finish(0);
+
+    }
+
+        arg(instruction);
+        end_case();
+
+    case inst::scpend:
+
+        end_case();
 
     case inst::inp:
 
@@ -317,259 +275,129 @@ int main(int argc, char** argv) {
         else auto _dummy = getchar();
 
         auto _dummy = scanf("%2047[^\n]", strbuffer);
-        local_stack_arg(1, string) = alloc_string(strbuffer);
+        addr(string) = alloc_string(strbuffer);
 
     }
 
-        ip += 2;
-        break;
+        end_case();
 
     case inst::out:
 
-        printf("%s", heap + local_stack_arg(1, string));
-
-        ip += 2;
-        break;
+        printf("%s", heap + addr(string));
+        end_case();
 
     case inst::tmrs:
 
         timer.reset();
-
-        ip++;
-        break;
+        end_case();
 
     case inst::tmrr:
 
-        local_stack_arg(1, decimal) = timer.time();
-    
-        ip += 2;
-        break;
+        addr(decimal) = timer.time();    
+        end_case();
 
     case inst::rand:
 
-        local_stack_arg(1, integer) = (integer)std::rand();
+        addr(integer) = (integer)std::rand();
+        end_case();
 
-        ip += 2;
-        break;
-
-    case inst::gc:
+    //case inst::gc:
 
         /* Garbage collection here */
-        break;
+        //end_case();
 
     case inst::halloc:
 
-        local_stack_arg(2, instruction) = alloc(local_stack_arg(1, instruction) * 8);
+    {
 
-        ip += 3;
-        break;
+        auto mem = alloc(addr(instruction));
+        addr(instruction) = mem;
+
+    }
+
+        end_case();
 
     case inst::hinit:
 
     {
 
-        auto arrlength = local_stack_arg(1, instruction) * 8;
-        auto allocation = alloc(arrlength);
+        auto arrlength = addr(instruction) * 8;
+        auto mem = alloc(arrlength);
 
-        std::memset(heap + allocation, 0, 8 * arrlength);
+        std::memset(heap + mem, 0, arrlength);
 
-        local_stack_arg(2, instruction) = allocation;
+        addr(instruction) = mem;
 
     }
 
-        ip += 3;
-        break;
+        end_case();
 
-    case inst::lhcpy:
+    case inst::copy:
 
     {
 
-        auto heapoffset = local_stack_arg(3, instruction);
-        if (heapoffset == 0) nothing_accessed();
+        auto datasize = arg(instruction);
+        auto& src = addr(instruction);
+        auto dst = heap + addr(instruction);
 
-        std::memcpy(heap + heapoffset, stack + sp + arg(2, instruction), 8 * local_stack_arg(1, instruction));
+        //if (src == 0 || (dst == 0 && )) nothing_accessed();
+
+        std::memcpy(dst, &src, datasize);
 
     }
 
-        ip += 4;
-        break;
+    end_case();
 
-    case inst::hhcpy:
+    case inst::mov:
 
     {
 
-        auto heapoffsetdst  = local_stack_arg(3, instruction);
-        if (heapoffsetdst == 0) nothing_accessed();
+        auto is_single_byte = false;
 
-        auto heapoffsetsrc  = local_stack_arg(2, instruction);
-        if (heapoffsetsrc == 0) nothing_accessed();
+        auto src = next_addr(); is_single_byte |= single_byte;
+        auto dst = next_addr(); is_single_byte |= single_byte;
 
-        std::memcpy(heap + heapoffsetdst, heap + heapoffsetsrc, 8 * local_stack_arg(1, instruction));
-
-    }
-
-        ip += 4;
-        break;
-
-    case inst::movll:
-
-        local_stack_arg(2, instruction) = local_stack_arg(1, instruction);
-
-        ip += 3;
-        break;
-
-    case inst::movpl:
-
-        local_stack_arg(2, instruction) = arg(1, instruction);
-
-        ip += 3;
-        break;
-
-    case inst::movxl:
-
-        local_stack_arg(2, instruction) = stack_arg(1, instruction);
-
-        ip += 3;
-        break;
-
-    case inst::movhl:
-
-    {
-
-        auto heapoffset = local_stack_arg(2, instruction);
-        if (heapoffset == 0) nothing_accessed();
-
-        local_stack_arg(3, instruction) = heap_arg(heapoffset, 8 * local_stack_arg(1, instruction), instruction);
+        if (is_single_byte) *(ascii*)dst = *(ascii*)src;
+        else *(instruction*)dst = *(instruction*)src;
 
     }
 
-        ip += 4;
-        break;
-
-    case inst::movlx:
-
-        stack_arg(2, instruction) = local_stack_arg(1, instruction);
-
-        ip += 3;
-        break;
-
-    case inst::movpx:
-
-        stack_arg(2, instruction) = arg(1, instruction);
-
-        ip += 3;
-        break;
-
-    case inst::movxx:
-
-        stack_arg(2, instruction) = stack_arg(1, instruction);
-
-        ip += 3;
-        break;
-
-    case inst::movhx:
-
-    {
-
-        auto heapoffset = local_stack_arg(2, instruction);
-        if (heapoffset == 0) nothing_accessed();
-
-        stack_arg(3, instruction) = heap_arg(heapoffset, 8 * local_stack_arg(1, instruction), instruction);
-
-    }
-
-        ip += 4;
-        break;
-
-    case inst::movlh:
-
-    {
-
-        auto heapoffset = local_stack_arg(3, instruction);
-        if (heapoffset == 0) nothing_accessed();
-
-        heap_arg(heapoffset, 8 * local_stack_arg(2, instruction), instruction) = local_stack_arg(1, instruction);
-
-    }
-
-        ip += 4;
-        break;
-
-    case inst::movph:
-
-    {
-
-        auto heapoffset = local_stack_arg(3, instruction);
-        if (heapoffset == 0) nothing_accessed();
-
-        heap_arg(heapoffset, 8 * local_stack_arg(2, instruction), instruction) = arg(1, instruction);
-
-    }
-
-        ip += 4;
-        break;
-
-    case inst::movxh:
-
-    {
-
-        auto heapoffset = local_stack_arg(3, instruction);
-        if (heapoffset == 0) nothing_accessed();
-
-        heap_arg(heapoffset, 8 * local_stack_arg(2, instruction), instruction) = stack_arg(1, instruction);
-
-    }
-
-        ip += 4;
-        break;
-
-    case inst::movhh:
-
-    {
-
-        auto heapoffsetdst = local_stack_arg(4, instruction);
-        if (heapoffsetdst == 0) nothing_accessed();
-
-        auto heapoffsetsrc = local_stack_arg(2, instruction);
-        if (heapoffsetsrc == 0) nothing_accessed();
-
-        heap_arg(heapoffsetdst, 8 * local_stack_arg(3, instruction), instruction) = heap_arg(heapoffsetsrc, 8 * local_stack_arg(1, instruction), instruction);
-
-    }
-
-        ip += 5;
-        break;
+    end_case();
 
     case inst::strlen:
 
-        local_stack_arg(2, instruction) = *((instruction*)(heap + local_stack_arg(1, instruction)) - 1) - 1;
+    {
 
-        ip += 3;
-        break;
+        auto straddress = addr(instruction);
+        auto strlen = *((instruction*)(heap + straddress) - 1) - 1;
+
+        addr(instruction) = strlen;
+
+    }
+
+        end_case();
 
     case inst::arrlen:
 
     {
 
-        auto heapoffset = local_stack_arg(1, instruction);
-        if (heapoffset == 0) nothing_accessed();
+        auto arraddress = addr(instruction);
+        if (arraddress == 0) nothing_accessed();
 
-        local_stack_arg(2, instruction) = *((instruction*)(heap + heapoffset) - 1) / 8;
+        addr(instruction) = *((instruction*)(heap + arraddress) - 1) / 8;
 
     }
 
-        ip += 3;
-        break;
+        end_case();
 
     case inst::arrcat:
 
     {
 
-        auto heapoffset1 = local_stack_arg(1, instruction);
-        if (heapoffset1 == 0) nothing_accessed();
+        auto heapoffset1 = addr(instruction);
+        auto heapoffset2 = addr(instruction);
 
-        auto heapoffset2 = local_stack_arg(2, instruction);
-        if (heapoffset2 == 0) nothing_accessed();
+        if (heapoffset1 == 0 || heapoffset2 == 0) nothing_accessed();
 
         auto arr1 = (instruction*)(heap + heapoffset1);
         auto arr2 = (instruction*)(heap + heapoffset2);
@@ -583,45 +411,65 @@ int main(int argc, char** argv) {
         std::memcpy(arrres, arr1, sz1);
         std::memcpy(arrres + sz1/8, arr2, sz2);
 
-        local_stack_arg(3, instruction) = catresult;
+        addr(instruction) = catresult;
 
     }
 
-        ip += 4;
-        break;
+        end_case();
 
-#define cast_instruction(ltype, rtype, lreg, rreg) case inst::cast##lreg##rreg: local_stack_arg(2, rtype) = (rtype)local_stack_arg(1, ltype); ip += 3; break
+#define cast_instruction(ltype, rtype, lreg, rreg) \
+                                                   \
+case inst::cast##lreg##rreg:                       \
+                                                   \
+{                                                  \
+                                                   \
+    auto val = (rtype)addr(ltype);                 \
+    addr(rtype) = val;                             \
+                                                   \
+}                                                  \
+                                                   \
+end_case()
 
     cast_instruction(integer, decimal, i, d);
     cast_instruction(decimal, integer, d, i);
-    cast_instruction(integer, bool, i, b);
-    cast_instruction(bool, integer, b, i);
-    cast_instruction(decimal, bool, d, b);
-    cast_instruction(bool, decimal, b, d);
     cast_instruction(ascii, integer, a, i);
     cast_instruction(integer, ascii, i, a);
 
-#define str_cast_instruction(ltype, rtype, lreg, rreg) case inst::cast##lreg##rreg: local_stack_arg(2, rtype) = typecast_##ltype##_##rtype(local_stack_arg(1, ltype)); ip += 3; break
+#define str_cast_instruction(ltype, rtype, lreg, rreg) \
+                                                       \
+case inst::cast##lreg##rreg:                           \
+                                                       \
+{                                                      \
+                                                       \
+    auto val = addr(ltype);                            \
+    addr(rtype) = typecast_##ltype##_##rtype(val);     \
+                                                       \
+}                                                      \
+                                                       \
+end_case()
 
     str_cast_instruction(string, integer, s, i);
     str_cast_instruction(integer, string, i, s);
     str_cast_instruction(string, decimal, s, d);
     str_cast_instruction(decimal, string, d, s);
-    str_cast_instruction(string, bool, s, b);
-    str_cast_instruction(bool, string, b, s);
     str_cast_instruction(ascii, string, a, s);
 
 #define op_instruction(op, opname, dt, dtype) \
                                               \
 case inst::opname##dt:                        \
                                               \
-local_stack_arg(3, dtype) =                   \
-    local_stack_arg(1, dtype)                 \
-        op                                    \
-    local_stack_arg(2, dtype);                \
+{                                             \
                                               \
-ip += 4;                                      \
-break
+    auto val =                                \
+        addr(dtype)                           \
+            op                                \
+        addr(dtype);                          \
+                                              \
+    addr(dtype) = val;                        \
+                                              \
+}                                             \
+                                              \
+end_case()
 
     op_instruction(+, add, i, integer);
     op_instruction(+, add, d, decimal);
@@ -643,13 +491,18 @@ break
                                                       \
 case inst::labl:                                      \
                                                       \
-local_stack_arg(3, dtype) = funcname(                 \
-    local_stack_arg(1, dtype),                        \
-    local_stack_arg(2, dtype)                         \
-);                                                    \
+{                                                     \
                                                       \
-ip += 4;                                              \
-break;
+    auto lh = addr(dtype);                            \
+    auto rh = addr(dtype);                            \
+                                                      \
+    auto val = funcname(lh, rh);                      \
+                                                      \
+    addr(dtype) = val;                                \
+                                                      \
+}                                                     \
+                                                      \
+end_case()
 
     op_instruction_special(powi, integer, intpow);
     op_instruction_special(powd, decimal, powf);
@@ -659,13 +512,18 @@ break;
                                                     \
 case inst::compname##dt:                            \
                                                     \
-local_stack_arg(3, bool) =                          \
-    local_stack_arg(1, dtype)                       \
-        comp                                        \
-    local_stack_arg(2, dtype);                      \
+{                                                   \
                                                     \
-ip += 4;                                            \
-break
+    bool val =                                      \
+        addr(dtype)                                 \
+            comp                                    \
+        addr(dtype);                                \
+                                                    \
+    addr(bool) = val;                               \
+                                                    \
+}                                                   \
+                                                    \
+end_case()
 
     comp_instruction(==, eq, i, integer);
     comp_instruction(==, eq, d, decimal);
@@ -688,17 +546,22 @@ break
     comp_instruction(<=, lte, d, decimal);
     comp_instruction(<=, lte, a, ascii);
 
-#define strcomp_instruction(compname)       \
-                                            \
-case inst::compname##s:                     \
-                                            \
-local_stack_arg(3, string) = str##compname( \
-    local_stack_arg(1, string),             \
-    local_stack_arg(2, string)              \
-);                                          \
-                                            \
-ip += 4;                                    \
-break
+#define strcomp_instruction(compname) \
+                                      \
+case inst::compname##s:               \
+                                      \
+{                                     \
+                                      \
+    auto lh = addr(string);           \
+    auto rh = addr(string);           \
+                                      \
+    bool val = str##compname(lh, rh); \
+                                      \
+    addr(bool) = val;                 \
+                                      \
+}                                     \
+                                      \
+end_case()
 
     strcomp_instruction(eq);
     strcomp_instruction(neq);
@@ -707,10 +570,28 @@ break
     strcomp_instruction(lt);
     strcomp_instruction(lte);
 
-    case inst::noti: local_stack_arg(2, integer) = !(local_stack_arg(1, integer)); ip += 3; break;
+    case inst::noti:
 
-    case inst::notb: local_stack_arg(2, bool) = !(local_stack_arg(1, bool)); ip += 3; break;
+    {
 
+        auto negation = !addr(integer);
+        addr(integer) = negation;
+
+    }
+
+        end_case();
+
+    case inst::notb:
+
+    {
+
+        auto negation = !addr(bool);
+        addr(bool) = negation;
+
+    }
+
+        end_case();
+    
     }
 
 }

@@ -32,16 +32,16 @@ Decimal Eval::NodeEvaluator::getNumericValue() {
 
 Eval::NodeEvaluator::NodeEvaluator() { zeroMemory(); }
 
-Eval::NodeEvaluator::NodeEvaluator(void* vexp, bool needs_val, bool is_lh) 
-	: exp(vexp), needs_val(needs_val), is_lh(is_lh), is_top_level(true), stack_offset(Evaluator::cur_expression_info.cur_progress ? Evaluator::cur_expression_info.stack_offset : 0) {
+Eval::NodeEvaluator::NodeEvaluator(void* vexp, bool needs_val, bool is_lh, bool is_top_level) 
+	: exp(vexp), needs_val(needs_val), is_lh(is_lh), is_top_level(is_top_level), stack_offset(Evaluator::cur_expression_info.cur_progress ? Evaluator::cur_expression_info.stack_offset : 0) {
 
 	zeroMemory();
 	construct(((AST::Expression*)vexp)->node(), vexp);
 
 }
 
-Eval::NodeEvaluator::NodeEvaluator(void* vnode, void* vexp, bool needs_val, bool is_lh) 
-	: exp(vexp), needs_val(needs_val), is_lh(is_lh), is_top_level(true), stack_offset(Evaluator::cur_expression_info.cur_progress ? Evaluator::cur_expression_info.stack_offset : 0) {
+Eval::NodeEvaluator::NodeEvaluator(void* vnode, void* vexp, bool needs_val, bool is_lh, bool is_top_level) 
+	: exp(vexp), needs_val(needs_val), is_lh(is_lh), is_top_level(is_top_level), stack_offset(Evaluator::cur_expression_info.cur_progress ? Evaluator::cur_expression_info.stack_offset : 0) {
 
 	zeroMemory();
 	construct(vnode, vexp);
@@ -79,50 +79,37 @@ Eval::NodeEvaluator::NodeEvaluator(void* vnode, void* vexp, bool needs_val, bool
 
 }
 
-#define _get_dst_info() \
-\
-int dst_index = is_top_level ? (Evaluator::cur_expression_info.lh_index) : (stack_offset + 2); \
-bool dst_is_local = !is_top_level || Evaluator::cur_expression_info.lh_access_mode != ExpressionCompileInfo::LH_AccessMode::Direct
-
 #define _get_literal_src_encoding(neval) \
 \
-instruction mov_src; \
+instruction mov_src = 0; \
 bool src_is_string = false; \
 \
 if (neval->eval_type == AST::Type::String) { \
 	\
-	src_is_string = true; \
-	mov_src = Evaluator::program_data.getStackPosition(nd, neval->value<String>()); \
+	src_is_string = true;\
+	mov_src = Evaluator::program_data.getStackPosition(nd, neval->value<String>());\
 	\
 } \
 \
-else { \
-	\
-	if (neval->eval_type == AST::Type::Integer) mov_src = I_dirty_cast(neval->value<Integer>()); \
-	else if (neval->eval_type == AST::Type::Decimal) mov_src = I_dirty_cast(neval->value<Decimal>()); \
-	else if (neval->eval_type == AST::Type::Bool) mov_src = I_dirty_cast(neval->value<Bool>()); \
-	else if (neval->eval_type == AST::Type::Ascii) mov_src = I_dirty_cast(neval->value<Ascii>()); \
-	\
-}
+else mov_src = neval->value<instruction>()
 
-#define _gen_literal_primitive_bytecode() \
+#define _gen_literal_address() \
 \
-_get_dst_info(); \
 _get_literal_src_encoding(this); \
+auto literal_address = (src_is_string ? Address::global(mov_src) : Address::imm(mov_src)).setDataType(eval_type); \
 \
-inst in; \
-\
-if (dst_is_local) in = src_is_string ? inst::movxl : inst::movpl; \
-else in = src_is_string ? inst::movxx : inst::movpx; \
-\
-bytecode->addInstruction(in, mov_src, dst_index)
+if (is_top_level) bytecode->addInstruction(inst::mov, literal_address, address); \
+else address = literal_address
 
 void Eval::NodeEvaluator::construct(void* vnode, void* vexp) {
+
+	if (vnode == nullptr) return;
 
 	nd = vnode;
 	auto node = (AST::Node*)vnode;
 
-	if (node == nullptr) return;
+	if (Evaluator::is_evaluating && needs_val) bytecode = new BytecodeBlock();
+	address = is_top_level ? Evaluator::cur_expression_info.lh_address : Address::local(stack_offset + 2);
 
 	auto nid = node->ID;
 
@@ -175,12 +162,20 @@ void Eval::NodeEvaluator::evaluateArrayInitializer(void* ai) {
 
 	AST::TypeID cur_type = AST::Type::Anything;
 	bool cast_int_to_float = false;
+
+	auto lh_address_temp = Evaluator::cur_expression_info.lh_address;
+
+#define _ai_default_offset 1
 	
 	for (int i = 0; i < comps.size(); i++) {
 
 		auto comp = comps[i]();
 
-		ptr_NodeEvaluator evaluator = new NodeEvaluator(comp->node(), comp, needs_val, is_lh, false, stack_offset + i + 2);
+		Evaluator::cur_expression_info.lh_address = Address::local(stack_offset + i + 2 + _ai_default_offset);
+
+		ptr_NodeEvaluator evaluator = new NodeEvaluator(comp->node(), comp, needs_val, false, true, stack_offset + i + _ai_default_offset);
+
+		Evaluator::cur_expression_info.lh_address = lh_address_temp;
 
 		if (evaluator->error.error) { error = evaluator->error; return; }
 
@@ -250,34 +245,25 @@ void Eval::NodeEvaluator::evaluateArrayInitializer(void* ai) {
 
 	}
 
-	if (Evaluator::is_evaluating && needs_val) {
+	setEvalType(AST::Type::fromArray(cur_type).ID);
 
-		bytecode = new BytecodeBlock();
+	if (Evaluator::is_evaluating && needs_val) {
 
 		for (int i = 0; i < child_evaluators.size(); i++) {
 
 			auto eval = child_evaluators[i]();
 
 			if (cast_int_to_float && eval->eval_type == AST::Type::Integer)
-				eval->bytecode->addInstruction(inst::castid, stack_offset + 4 + i, stack_offset + 4 + i);
+				eval->bytecode->addInstruction(inst::castid, Address::local(stack_offset + i + 2 + _ai_default_offset).setDataType(AST::Type::Integer), Address::local(stack_offset + i + 2 + _ai_default_offset).setDataType(AST::Type::Decimal));
 
 			bytecode->mergeWith(*eval->bytecode);
 
 		}
 
-		_get_dst_info();
-		int dst = dst_is_local ? dst_index : stack_offset + 2;
-
-		bytecode->addInstruction(inst::movpl, comps.size(), stack_offset + 3);
-		bytecode->addInstruction(inst::halloc, stack_offset + 3, dst);
-		bytecode->addInstruction(inst::lhcpy, stack_offset + 3, stack_offset + 4, dst);
-
-		if (!dst_is_local)
-			bytecode->addInstruction(inst::movlx, dst, dst_index);
+		bytecode->addInstruction(inst::halloc, Address::imm(comps.size() * 8).setDataType(AST::Type::Integer), address);
+		bytecode->addInstruction(inst::copy, comps.size() * 8, Address::local(stack_offset + 2 + _ai_default_offset).setDataType(eval_type), address);
 
 	}
-
-	eval_type = AST::Type::fromArray(cur_type).ID;
 
 }
 
@@ -285,7 +271,7 @@ void Eval::NodeEvaluator::evaluateLiteral(void* lt) {
 
 	auto l = ((AST::LiteralNode*)lt)->literal;
 
-	eval_type = l->type;
+	setEvalType(l->type);
 
 	if (!needs_val) return;
 
@@ -301,16 +287,7 @@ void Eval::NodeEvaluator::evaluateLiteral(void* lt) {
 
 	else if (eval_type == AST::Type::Decimal) value<Decimal>() = stof<Decimal>(l->info);
 
-	if (Evaluator::is_evaluating && needs_val && eval_type != AST::Type::Array) {
-
-		bool is_primitive = AST::Type(eval_type).type_class == AST::Type::Class::Primitive;
-
-		bytecode = new BytecodeBlock();
-
-		if (is_primitive) { _gen_literal_primitive_bytecode(); }
-		else bytecode->addInstruction(inst::movpl, 0, stack_offset + 2);
-
-	}
+	if (Evaluator::is_evaluating && needs_val && eval_type != AST::Type::Array) { _gen_literal_address(); }
 
 	return;
 
@@ -320,7 +297,7 @@ void Eval::NodeEvaluator::evaluateVariable(void* vr) {
 
 	auto v = ((AST::VariableNode*)vr);
 	auto sym = v->sym;
-	
+
 	copy(sym->evaluator);
 
 	if (!needs_val && eval_type == AST::Type::Nothing) {
@@ -343,27 +320,12 @@ void Eval::NodeEvaluator::evaluateVariable(void* vr) {
 
 		is_constant = false;
 
-		bytecode = new BytecodeBlock();
+		auto src_index = _var_offset(sym());
+		auto variable_address = (sym->is_global ? Address::global(src_index) : Address::local(src_index)).setDataType(eval_type);
 
-		int src_index;
-		bool src_is_local = true;
+		if (is_top_level) bytecode->addInstruction(inst::mov, variable_address, address);
 
-		_get_dst_info();
-
-		if (sym->is_global) {
-
-			src_is_local = false;
-			src_index = Evaluator::program_data.getStackPosition(sym());
-
-		}
-		else src_index = _local_var_offset(sym);
-
-		inst in;
-		
-		if (dst_is_local) in = src_is_local ? inst::movll : inst::movxl;
-		else in = src_is_local ? inst::movlx : inst::movxx;
-
-		bytecode->addInstruction(in, src_index, dst_index);
+		else address = variable_address;
 
 	}
 
@@ -372,9 +334,9 @@ void Eval::NodeEvaluator::evaluateVariable(void* vr) {
 }
 
 void Eval::NodeEvaluator::evaluatePatternMatch(void* vpm) {
-
-	auto pm = (AST::PatternMatchNode*)vpm;
 	
+	auto pm = (AST::PatternMatchNode*)vpm;
+
 	auto bundle = pm->bundle;
 	auto sym = bundle->firstSym();
 
@@ -382,13 +344,19 @@ void Eval::NodeEvaluator::evaluatePatternMatch(void* vpm) {
 	
 	AST::TypeList arg_types;
 
+	auto lh_address_temp = Evaluator::cur_expression_info.lh_address;
+
 	for (int i = 0; i < sym->num_arguments; i++) {
 
 		int arg_index = sym->argument_indices[i];
 		
 		auto comp = pm->components[arg_index];
 
-		ptr_NodeEvaluator evaluator = new NodeEvaluator(comp(), exp, needs_val, is_lh, false, stack_offset + i);
+		Evaluator::cur_expression_info.lh_address = Address::local(stack_offset + i + 2);
+
+		ptr_NodeEvaluator evaluator = new NodeEvaluator(comp(), exp, needs_val, false, false, stack_offset + i);
+
+		Evaluator::cur_expression_info.lh_address = lh_address_temp;
 
 		if (evaluator->error.error) { error = evaluator->error; return; }
 
@@ -522,22 +490,10 @@ void Eval::NodeEvaluator::evaluatePatternMatch(void* vpm) {
 
 	}
 
-	if (match->description.size() == 0) {
-
-		auto header_syms = ((AST::Builder*)match->header)->table;
-
-		for (int i = 0; i < sym->num_arguments; i++) {
-
-			auto& evaluator = header_syms->variables[i]->evaluator;
-
-			evaluator.is_constant = false;
-			evaluator.eval_type = arg_types[i];
-
-		}
+	if (match->description.size() == 0)
 
 		evaluateGeneralPatternMatch(match, arg_types, child_evaluators);
 
-	}
 	else {
 
 		auto lh = child_evaluators.size() > 0 ? child_evaluators[0] : nullptr;
@@ -549,45 +505,15 @@ void Eval::NodeEvaluator::evaluatePatternMatch(void* vpm) {
 
 }
 
-#define _get_var_pos(hand, offset) \
+#define _get_arg_address(hand, offset) \
 \
-int var_pos_##hand = stack_offset + 2 + offset; \
-bool needs_copy_##hand = true; \
-\
-if (hand##_node->ID == AST::NodeID::Variable) { \
-	\
-	auto varnode = (AST::VariableNode*)hand##_node; \
-	auto varsym = varnode->sym; \
-	\
-	if (!varsym->is_global) { \
-		\
-		var_pos_##hand = _local_var_offset(varsym); \
-		needs_copy_##hand = false; \
-		\
-	} \
-	\
-} \
-if (needs_copy_##hand) bytecode->mergeWith(*hand##_eval->bytecode)
+auto hand##_address = hand##_eval->address; \
+if (hand##_node->ID != AST::NodeID::Variable && !hand##_eval->is_constant) bytecode->mergeWith(*hand##_eval->bytecode)
 
 #define _get_built_in_function_value(Dtype, Insttype) \
 \
-eval_type = AST::Type::Dtype; \
-\
-if (bytecode != nullptr) { \
-	\
-	_get_dst_info(); \
-	\
-	if (dst_is_local) \
-		bytecode->addInstruction(inst::Insttype, dst_index); \
-	\
-	else { \
-		\
-		bytecode->addInstruction(inst::Insttype, stack_offset + 2); \
-		bytecode->addInstruction(inst::movlx, stack_offset + 2, dst_index); \
-		\
-	} \
-	\
-}
+setEvalType(AST::Type::Dtype); \
+if (bytecode != nullptr) bytecode->addInstruction(inst::Insttype, address);
 
 void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvaluator lh_eval, ptr_NodeEvaluator rh_eval) {
 
@@ -611,47 +537,33 @@ void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvalua
 	bool is_sys = desc[0] == 'S' && desc[1] == 'y';
 	bool is_array_logic = desc[0] == 'A' && desc[1] == 'r';
 
-	if (Evaluator::is_evaluating && needs_val) bytecode = new BytecodeBlock();
-
 	if (is_array_logic) {
 
 		if (sym->num_arguments == 1) {
 
 			if (sym->argument_indices[0] == 0) {
 
-				eval_type = AST::Type::fromArray(lh_type).ID;
+				setEvalType(AST::Type::fromArray(lh_type).ID);
 				is_constant = true;
 
-				if (bytecode != nullptr) {
+				auto nothing_address = Address::imm(0).setDataType(eval_type);
 
-					_get_dst_info();
-
-					bytecode->addInstruction(dst_is_local ? inst::movpl : inst::movpx, 0, dst_index);
-
-				}
+				if (is_top_level && bytecode != nullptr) bytecode->addInstruction(inst::mov, nothing_address, address);
+				else address = nothing_address;
 
 			}
 
 			else {
 
-				eval_type = AST::Type::Integer;
+				setEvalType(AST::Type::Integer);
 
 				if (bytecode != nullptr) {
 
-					_get_var_pos(lh, 0);
-					_get_dst_info();
+					_get_arg_address(lh, 0);
 
 					auto in = lh_type == AST::Type::String ? inst::strlen : inst::arrlen;
 
-					if (dst_is_local)
-						bytecode->addInstruction(in, var_pos_lh, dst_index);
-
-					else {
-
-						bytecode->addInstruction(in, var_pos_lh, stack_offset + 2);
-						bytecode->addInstruction(in, stack_offset + 2, dst_index);
-
-					}
+					bytecode->addInstruction(in, lh_address, address);
 
 				}
 
@@ -663,22 +575,13 @@ void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvalua
 
 			if (sym->operator[](1).name[0] == 'a') {
 
-				eval_type = AST::Type::fromArray(lh_type).ID;
+				setEvalType(AST::Type::fromArray(lh_type).ID);
 				
 				if (bytecode != nullptr) {
 
-					_get_var_pos(rh, 1);
-					_get_dst_info();
+					_get_arg_address(rh, 1);
 
-					if (dst_is_local)
-						bytecode->addInstruction(inst::hinit, var_pos_rh, dst_index);
-
-					else {
-
-						bytecode->addInstruction(inst::hinit, var_pos_rh, stack_offset + 2);
-						bytecode->addInstruction(inst::movlx, stack_offset + 2, dst_index);
-
-					}
+					bytecode->addInstruction(inst::hinit, rh_address, address);
 
 				}
 
@@ -686,28 +589,45 @@ void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvalua
 
 			else {
 
-				eval_type = AST::Type(lh_type).getArrayContainedType();
+				bool is_string = lh_type == AST::Type::String;
+
+				setEvalType(is_string ? AST::Type::Ascii : AST::Type(lh_type).getArrayContainedType());
 
 				if (bytecode != nullptr) {
 
+					_get_arg_address(lh, 0);
+					_get_arg_address(rh, 1);
+
+#define _move_arg_local(hand, offset) \
+\
+if (hand##_address.access_type % 16 > access::imm) { \
+	\
+	auto hand##_address_new = Address::local(stack_offset + 2 + offset).setDataType(hand##_type); \
+	\
+	bytecode->addInstruction(inst::mov, hand##_address, hand##_address_new); \
+	hand##_address = hand##_address_new; \
+	\
+}
+
+					_move_arg_local(lh, 0);
+					_move_arg_local(rh, 1);
+
 					if (is_lh && is_top_level) {
 
-						_get_var_pos(lh, 0);
-						_get_var_pos(rh, 1);
-
-						Evaluator::cur_expression_info.cur_progress->base_offset = var_pos_lh;
-						Evaluator::cur_expression_info.cur_progress->index_offset = var_pos_rh;
+						Evaluator::cur_expression_info.lh_address = (
+							is_string
+								? Address::heap1(lh_address, rh_address)
+								: Address::heap8(lh_address, rh_address)
+						).setDataType(eval_type);
 
 					}
 
 					else {
 
-						_get_var_pos(lh, 0);
-						_get_var_pos(rh, 1);
-						_get_dst_info();
+						auto src_address = (is_string ? Address::heap1(lh_address, rh_address) : Address::heap8(lh_address, rh_address)).setDataType(eval_type);
 
-						auto in = dst_is_local ? inst::movhl : inst::movhx;
-						bytecode->addInstruction(in, var_pos_rh, var_pos_lh, dst_index);
+						if (is_top_level) bytecode->addInstruction(inst::mov, src_address, address);
+						else address = src_address;
 
 					}
 
@@ -727,23 +647,26 @@ void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvalua
 
 		if (name[0] == 'o' && bytecode != nullptr) {
 
-			_get_var_pos(lh, 0);
+			_get_arg_address(lh, 0);
 
 			if (lh_type != AST::Type::String) {
 
 				inst in;
 
-				if (lh_type == AST::Type::Bool) in = inst::castbs;
-				else if (lh_type == AST::Type::Integer) in = inst::castis;
+				if (lh_type == AST::Type::Integer) in = inst::castis;
 				else if (lh_type == AST::Type::Decimal) in = inst::castds;
 				else in = inst::castas;
 
-				bytecode->addInstruction(in, var_pos_lh, stack_offset + 2);
-				var_pos_lh = stack_offset + 2;
+				address.setDataType(lh_type);
+
+				bytecode->addInstruction(in, lh_address, address);
+				lh_address = address;
 
 			}
 
-			bytecode->addInstruction(inst::out, var_pos_lh);
+			bytecode->addInstruction(inst::out, lh_address);
+
+			address.setDataType(AST::Type::Nothing);
 
 		}
 
@@ -771,14 +694,14 @@ void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvalua
 
 		if (name[0] == 't') {
 
-			eval_type = lh_type;
+			setEvalType(lh_type);
 			is_constant = true;
 
 		}
 
 		else if (name[0] == 'i') {
 
-			eval_type = AST::Type::Bool;
+			setEvalType(AST::Type::Bool);
 			is_constant = true;
 
 			bool negated = name.size() > 2 && name[2] == 'n';
@@ -792,76 +715,42 @@ void Eval::NodeEvaluator::evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvalua
 
 		else {
 
-			if (
-				(lh_type == AST::Type::Decimal && rh_type == AST::Type::Ascii) ||
-				(lh_type == AST::Type::Bool && rh_type == AST::Type::Ascii) ||
-				(lh_type == AST::Type::Ascii && rh_type == AST::Type::Decimal) ||
-				(lh_type == AST::Type::Ascii && rh_type == AST::Type::Bool) ||
-				(lh_type == AST::Type::String && rh_type == AST::Type::Ascii)
-			) { 
-
-				error.error = true;
-				error.info = "Illegal typecast.";
-
-				error.sources.push_back(new PrintableString("Source expression:\n" + ((AST::Expression*)exp)->print(2, false)));
-
-				error.sources.push_back(new PrintableString("Casting from:\n" + AST::Type(lh_type).print(2, false)));
-				error.sources.push_back(new PrintableString("Casting to:\n" + AST::Type(rh_type).print(2, false)));
-
-				return;
-
-			}
-
-			eval_type = rh_type;
+			setEvalType(rh_type);
 
 			if (lh_constant && rh_constant && needs_val) {
 				
 				is_constant = true;
 				
-#define _typecast_case_(ltype, rtype) else if (lh_type == AST::Type::ltype && rh_type == AST::Type::rtype) value<rtype>() = (rtype)lh_eval->value<ltype>()
-
-#define _typecast_case(ltype) \
-\
-_typecast_case_(ltype, Bool); \
-_typecast_case_(ltype, Integer); \
-_typecast_case_(ltype, Decimal); \
-_typecast_case_(ltype, Ascii)
+#define _typecast_case(ltype, rtype) else if (lh_type == AST::Type::ltype && rh_type == AST::Type::rtype) value<rtype>() = (rtype)lh_eval->value<ltype>()
 
 #define _typecast_to_string(ltype) else if (lh_type == AST::Type::ltype && rh_type == AST::Type::String) value<String>() = std::to_string(lh_eval->value<ltype>())
 
 				if (false);
-				_typecast_case(Bool);
-				_typecast_case(Integer);
-				_typecast_case(Decimal);
-				_typecast_case(Ascii);
+				_typecast_case(Integer, Decimal);
+				_typecast_case(Integer, Ascii);
+				_typecast_case(Decimal, Integer);
+				_typecast_case(Ascii, Integer);
 				_typecast_to_string(Integer);
 				_typecast_to_string(Decimal);
-				else if (lh_type == AST::Type::Bool && rh_type == AST::Type::String) value<String>() = lh_eval->value<Bool>() ? "true" : "false";
 				else if (lh_type == AST::Type::Ascii && rh_type == AST::Type::String) value<String>() = (char)lh_eval->value<Ascii>();
 				else if (lh_type == AST::Type::String) {
 					
 					String& s = lh_eval->value<String>();
 
-					if (rh_type == AST::Type::Bool) value<Bool>() = s == "true";
-					else if (rh_type == AST::Type::Integer) value<Decimal>() = stoi<Decimal>(s);
+					if (rh_type == AST::Type::Integer) value<Integer>() = stoi<Integer>(s);
 					else if (rh_type == AST::Type::Decimal) value<Decimal>() = stof<Decimal>(s);
 					else if (rh_type == AST::Type::String) value<String>() = s;
 
 				}
+				else value<Integer>() = lh_eval->value<Integer>();
 
 			}
 
 			if (!is_constant && bytecode != nullptr) {
 				
-				_get_var_pos(lh, 0);
-				_get_dst_info();
+				_get_arg_address(lh, 0);
 
-				if (lh_type == rh_type) {
-
-					inst in = dst_is_local ? inst::movll : inst::movlx;
-					bytecode->addInstruction(in, var_pos_lh, dst_index);
-
-				}
+				if (lh_type == rh_type) bytecode->addInstruction(inst::mov, lh_address, address);
 
 				else {
 
@@ -871,30 +760,16 @@ _typecast_case_(ltype, Ascii)
 
 					if (false);
 					_typecast_inst_case(Integer, Decimal, i, d);
-					_typecast_inst_case(Integer, Bool, i, b);
 					_typecast_inst_case(Integer, Ascii, i, a);
 					_typecast_inst_case(Integer, String, i, s);
 					_typecast_inst_case(Decimal, Integer, d, i);
-					_typecast_inst_case(Decimal, Bool, d, b);
 					_typecast_inst_case(Decimal, String, d, s);
-					_typecast_inst_case(Bool, Integer, b, i);
-					_typecast_inst_case(Bool, Decimal, b, d);
-					_typecast_inst_case(Bool, String, b, s);
 					_typecast_inst_case(Ascii, Integer, a, i);
 					_typecast_inst_case(Ascii, String, a, s);
 					_typecast_inst_case(String, Integer, s, i);
 					_typecast_inst_case(String, Decimal, s, d);
-					_typecast_inst_case(String, Bool, s, b);
 
-					if (dst_is_local)
-						bytecode->addInstruction(castin, var_pos_lh, dst_index);
-
-					else {
-
-						bytecode->addInstruction(castin, var_pos_lh, stack_offset + 2);
-						bytecode->addInstruction(inst::movlx, stack_offset + 2, dst_index);
-
-					}
+					bytecode->addInstruction(castin, lh_address, address);
 
 				}
 
@@ -902,7 +777,7 @@ _typecast_case_(ltype, Ascii)
 
 		}
 
-		if (is_constant && bytecode != nullptr) { _gen_literal_primitive_bytecode(); }
+		if (is_constant && bytecode != nullptr) { _gen_literal_address(); }
 
 		return;
 
@@ -934,7 +809,7 @@ _typecast_case_(ltype, Ascii)
 
 			if (op == '+') {
 
-				eval_type = (lh_is_ascii && rh_is_ascii) ? AST::Type::Ascii : AST::Type::String;
+				setEvalType((lh_is_ascii && rh_is_ascii) ? AST::Type::Ascii : AST::Type::String);
 
 				if (lh_constant && rh_constant && needs_val) {
 
@@ -951,7 +826,7 @@ _typecast_case_(ltype, Ascii)
 
 			else if (op == 'G' || op == 'g' || op == 'L' || op == 'l' || op == '=' || op == '!') {
 
-				eval_type = AST::Type::Bool;
+				setEvalType(AST::Type::Bool);
 
 				if (lh_constant && rh_constant && needs_val) {
 
@@ -986,23 +861,20 @@ _typecast_case_(ltype, Ascii)
 
 		}
 
-		eval_type = lh_type;
+		setEvalType(lh_type);
 
 		if (bytecode != nullptr) {
 
-			_get_var_pos(lh, 0);
-			_get_var_pos(rh, 1);
-			_get_dst_info();
-
-			if (dst_is_local)
-				bytecode->addInstruction(inst::arrcat, var_pos_lh, var_pos_rh, dst_index);
-
+			if (is_constant) { _gen_literal_address(); }
+			
 			else {
 
-				bytecode->addInstruction(inst::arrcat, var_pos_lh, var_pos_rh, stack_offset + 2);
-				bytecode->addInstruction(inst::movlx, stack_offset + 2, dst_index);
+				_get_arg_address(lh, 0);
+				_get_arg_address(rh, 1);
 
-			}		
+				bytecode->addInstruction(inst::arrcat, lh_address, rh_address, address);
+
+			}
 
 		}
 
@@ -1016,7 +888,7 @@ _typecast_case_(ltype, Ascii)
 \
 else if (lh_type == AST::Type::type) { \
 	\
-	eval_type = AST::Type::type; \
+	setEvalType(AST::Type::type); \
 	\
 	if (lh_constant) { \
 		\
@@ -1032,13 +904,14 @@ else if (lh_type == AST::Type::type) { \
 		_unop_case(Bool)
 
 	}
+
 	else {
 
 #define _binop_case(ltype, rtype, etype) \
 \
 else if (lh_type == AST::Type::ltype && rh_type == AST::Type::rtype) { \
 	\
-	eval_type = is_operator ? AST::Type::etype : AST::Type::Bool; \
+	setEvalType(is_operator ? AST::Type::etype : AST::Type::Bool); \
 	\
 	if (lh_constant && rh_constant && needs_val) { \
 		\
@@ -1065,18 +938,18 @@ else if (lh_type == AST::Type::ltype && rh_type == AST::Type::rtype) { \
 		_binop_case(Integer, Ascii, Ascii)
 		_binop_case(Ascii, Integer, Ascii)
 		_binop_case(Ascii, Ascii, Ascii)
-		_binop_case(Bool, Bool, Bool);
+		_binop_case(Bool, Bool, Bool)
 
 	}
 
 	if (bytecode != nullptr) {
 
-		if (is_constant) { _gen_literal_primitive_bytecode(); }
+		if (is_constant) { _gen_literal_address(); }
 
 		else if (is_binop) {
-
-			_get_var_pos(lh, 0);
-			_get_var_pos(rh, 1);
+			
+			_get_arg_address(lh, 0);
+			_get_arg_address(rh, 1);
 
 			auto ret_type = lh_type;
 
@@ -1105,20 +978,22 @@ else if (lh_type == AST::Type::ltype && rh_type == AST::Type::rtype) { \
 
 				if (convert_lh) {
 
-					bytecode->addInstruction(in, var_pos_lh, stack_offset + 2);
-					var_pos_lh = stack_offset + 2;
+					auto lh_address_new = Address::local(stack_offset + 2).setDataType(eval_type);
+
+					bytecode->addInstruction(in, lh_address, lh_address_new);
+					lh_address = lh_address_new;
 
 				}
 				else {
 
-					bytecode->addInstruction(in, var_pos_rh, stack_offset + 3);
-					var_pos_rh = stack_offset + 3;
+					auto rh_address_new = Address::local(stack_offset + 3).setDataType(eval_type);
+
+					bytecode->addInstruction(in, rh_address, rh_address_new);
+					rh_address = rh_address_new;
 
 				}
 
 			}
-
-			_get_dst_info();
 
 			inst binopin = inst::exit;
 
@@ -1172,34 +1047,17 @@ else if (lh_type == AST::Type::ltype && rh_type == AST::Type::rtype) { \
 			_binop_inst_case(Bool, b, 'a', and);
 			_binop_inst_case(Bool, b, 'o', or);
 
-			if (dst_is_local)
-				bytecode->addInstruction(binopin, var_pos_lh, var_pos_rh, dst_index);
-
-			else {
-
-				bytecode->addInstruction(binopin, var_pos_lh, var_pos_rh, stack_offset + 2);
-				bytecode->addInstruction(inst::movlx, stack_offset + 2, dst_index);
-
-			}
+			bytecode->addInstruction(binopin, lh_address, rh_address, address);
 
 		}
 		
 		else {
 
-			_get_var_pos(lh, 0);
-			_get_dst_info();
+			_get_arg_address(lh, 0);
 
 			inst in = lh_type == AST::Type::Bool ? inst::notb : inst::noti;
 
-			if (dst_is_local)
-				bytecode->addInstruction(in, var_pos_lh, dst_index);
-
-			else {
-
-				bytecode->addInstruction(in, var_pos_lh, stack_offset + 2);
-				bytecode->addInstruction(inst::movlx, stack_offset + 2, dst_index);
-
-			}
+			bytecode->addInstruction(in, lh_address, address);
 
 		}
 
@@ -1242,7 +1100,8 @@ void Eval::NodeEvaluator::evaluateGeneralPatternMatch(void* vsym, AST::TypeList&
 		new_evaluator->num_vars.push_back(0);
 		new_evaluator->num_vars.push_back(new_evaluator->stack_offset);
 		new_evaluator->bytecode = new BytecodeBlock();
-		new_evaluator->bytecode->addInstruction(inst::sass, 0);
+		new_evaluator->bytecode->addInstruction(inst::begfnc, 0);
+		new_evaluator->bytecode->addInstruction(inst::scpbeg, new_evaluator->stack_offset);
 
 		Evaluator::next_eval = new_evaluator;
 		eval_type = AST::Type::Unknown;
@@ -1272,23 +1131,28 @@ void Eval::NodeEvaluator::evaluateGeneralPatternMatch(void* vsym, AST::TypeList&
 
 	}
 
-	eval_type = instantiation_info.return_type;
+	setEvalType(instantiation_info.return_type);
 
 	if (Evaluator::is_evaluating && needs_val) {
+		
+		for (int i = 0; i < child_evaluators.size(); i++) {
 
-		bytecode = new BytecodeBlock();
+			auto e = child_evaluators[i];
+
+			if (e->bytecode != nullptr) bytecode->mergeWith(*e->bytecode);
+			
+			if (e->address.access_type % 16 == access::local && e->address.args[0] == stack_offset + i + 2);
+			else bytecode->addInstruction(inst::mov, e->address, Address::local(stack_offset + i + 2).setDataType(eval_type));
+
+		}
+
 		int stack_growth = 2 + stack_offset + child_evaluators.size();
 
-		for (auto e : child_evaluators) bytecode->mergeWith(*e->bytecode);
 		bytecode->call(&instantiation_info, stack_growth);
 
-		if (is_top_level && Evaluator::cur_expression_info.lh_access_mode == ExpressionCompileInfo::LH_AccessMode::None) return;
+		if (is_top_level && Evaluator::cur_expression_info.lh_address.access_type == access::none) return;
 
-		_get_dst_info();
-
-		inst in = dst_is_local ? inst::movll : inst::movlx;
-
-		bytecode->addInstruction(in, stack_growth + 2, dst_index);
+		bytecode->addInstruction(inst::mov, Address::local(stack_growth + 2).setDataType(eval_type), address);
 
 	}
 
@@ -1337,7 +1201,7 @@ void* Eval::NodeEvaluator::getRestrictions(void* vsym) {
 
 		for (auto exp : rest_expressions) {
 
-			Eval::NodeEvaluator evaluator(exp(), false);
+			Eval::NodeEvaluator evaluator(exp(), false, false, true);
 
 			if (evaluator.error.error) { error = evaluator.error; return nullptr; }
 
@@ -1403,7 +1267,7 @@ else if (op == Opt) { \
 	\
 	if (condition) return (dtype == AST::Type::Ascii) ? (T)((Integer)lh opt (Integer)rh) : (T)((cast)lh opt (cast)rh); \
 	\
-	eval_type = AST::Type::Nothing; \
+	setEvalType(AST::Type::Nothing); \
 	return (T)0; \
 	\
 }
@@ -1431,7 +1295,7 @@ else if (op == Opt) { \
 		if (dtype != AST::Type::Bool) return (T)((Decimal)lh / (Decimal)rh);
 
 		return (T)0;
-		eval_type = AST::Type::Nothing;
+		setEvalType(AST::Type::Nothing);
 
 	}
 
@@ -1441,7 +1305,7 @@ else if (op == Opt) { \
 		if (dtype != AST::Type::Bool) return (T)pow((Decimal)lh, (Decimal)rh);
 
 		return (T)0;
-		eval_type = AST::Type::Nothing;
+		setEvalType(AST::Type::Nothing);
 		
 	}
 	if (op == '%') {
@@ -1449,18 +1313,18 @@ else if (op == Opt) { \
 		if (dtype == AST::Type::Integer) return (T)((Integer)lh % (Integer)rh);
 
 		return (T)0;
-		eval_type = AST::Type::Nothing;
+		setEvalType(AST::Type::Nothing);
 		
 	}
 	if (op == 'n') {
 
 		if (dtype == AST::Type::Integer || dtype == AST::Type::Bool) return (T)(!(Integer)lh);
 
-		eval_type = AST::Type::Nothing;
+		setEvalType(AST::Type::Nothing);
 		return (T)0;
 
 	}
-	if (dtype != AST::Type::Bool) { eval_type = AST::Type::Nothing; return (T)0; }
+	if (dtype != AST::Type::Bool) { setEvalType(AST::Type::Nothing); return (T)0; }
 	if (op == 'a') return (T)((Bool)lh && (Bool)rh);
 	if (op == 'o') return (T)((Bool)lh || (Bool)rh);
 	return (T)(!(Bool)lh);
@@ -1480,6 +1344,13 @@ bool Eval::NodeEvaluator::strComp(String& lh, String& rh, char op) {
 
 void Eval::NodeEvaluator::zeroMemory() { for (int i = 0; i < 8; i++) eval[i] = (char)0; }
 
+void Eval::NodeEvaluator::setEvalType(AST::TypeID type) {
+
+	eval_type = type;
+	address.setDataType(type);
+
+}
+
 void Eval::NodeEvaluator::copy(NodeEvaluator& cev) { 
 
 	error = cev.error;
@@ -1491,8 +1362,8 @@ void Eval::NodeEvaluator::copy(NodeEvaluator& cev) {
 	
 	} 
 	
-	eval_type = cev.eval_type; 
+	setEvalType(cev.eval_type); 
 	is_constant = cev.is_constant;
-	bytecode = cev.bytecode;
+	if (cev.bytecode != nullptr) bytecode = cev.bytecode;
 
 }

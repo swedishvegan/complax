@@ -4,19 +4,13 @@
 // Vector typedefs
 
 #include <vector>
-//#include "./allocate.hpp"
-
-template <typename T>
-using managed_vec = std::vector<T>;
-//using managed_vec = std::vector<T, allocator<T>>; // There used to be a custom allocator but I got rid of it because I did not observe any benefits after switching to it
 
 /*
 
 I had experimented with my own vector class with the goal of finding the 
 perfect values of VEC_DEFAULT_ALLOC and VEC_DEFAULT_REALLOC_FACTOR. However,
 after some experimentation I found that my own vector implementation
-basically has identical performance to the std::vector. I still use my own
-version though for the sake of simplicity.
+basically has identical performance to the std::vector.
 
 */
 
@@ -33,8 +27,6 @@ using vec = std::vector<T>; // Regular vector with default allocator
 
 #define VEC_DEFAULT_ALLOC 1
 #define VEC_DEFAULT_REALLOC_FACTOR 2.0
-
-struct VecSubscriptOutOfRange { };
 
 template <typename T>
 struct vec_iterator {
@@ -71,6 +63,7 @@ struct vec {
 	int size() const;
 	void push_back(T);
 	void resize(int);
+	T* data();
 	void clear();
 
 	bool operator == (const vec&) const;
@@ -147,7 +140,7 @@ template <typename T>
 void vec<T>::operator = (const vec<T>& v) { copy(v); }
 
 template <typename T>
-T& vec<T>::operator [] (int i) const { if (i < 0 || i >= s) throw VecSubscriptOutOfRange{ }; return mem[i]; }
+T& vec<T>::operator [] (int i) const { return mem[i]; }
 
 template <typename T>
 int vec<T>::size() const { return s; }
@@ -157,6 +150,9 @@ void vec<T>::push_back(T x) { if (s == capacity) reallocate(capacity, true); mem
 
 template <typename T>
 void vec<T>::resize(int s_new) { if (s_new > capacity) reallocate(s_new, true); s = s_new; }
+
+template <typename T>
+T* vec<T>::data() { return mem; }
 
 template <typename T>
 void vec<T>::clear() { s = 0; }
@@ -232,5 +228,8 @@ template <typename T>
 void vec<T>::cleanup() { if (mem != default_mem) delete[] mem; }
 
 #endif
+
+template <typename T>
+using managed_vec = vec<T>;
 
 #endif

@@ -2,6 +2,7 @@
 #define BYTECODEBLOCK_HPP
 
 #include "./Instruction.hpp"
+#include "./Address.hpp"
 #include "./../util/vec.hpp"
 #include "./../util/map.hpp"
 #include "./../util/ptr.hpp"
@@ -18,7 +19,6 @@ namespace Eval {
 
         managed_vec<instruction> instructions;
 
-        int max_stack_growth = 0; // Max size the stack ever grows to in this block; used for creating a "sass" instruction to check for stack overflows
         int global_index = 0;     // Global index within complete program bytecode; computed towards the end of compilation for calculating jump indices
 
         BytecodeBlock();
@@ -26,15 +26,26 @@ namespace Eval {
         void reset(); // Self-explanatory
 
         void mergeWith(BytecodeBlock&); // Appends the instructions in the BytecodeBlock passed as an argument to the instructions in this block
-
+        
         void call(void* ref, int num_args); // Wrapper around the "call" instruction that automatically inserts a hanging jump; ref is an AST::HeaderSymbol::InstantiationInfo object representing the specific instantiation of the function to be called
 
         template <typename... Args>               // I() and I_dirty_cast can be used to supply arguments with the proper type
         void addInstruction(instruction in, Args... args) { ibuf.push_back(I(in)); addInstruction(args...); }
-        void addInstruction(instruction in) { ibuf.push_back(I(in)); processInstruction(); }
+
         template <typename... Args>
-        void addInstruction(inst in, Args... args) { ibuf.push_back(I(in)); addInstruction(args...); }
-        void addInstruction(inst in) { ibuf.push_back(I(in)); processInstruction(); }
+        void addInstruction(Address addr, Args... args) { 
+            
+            ibuf.push_back(I(addr.access_type));
+            ibuf.push_back(addr.args[0]);
+            if (addr.num_args == 2) ibuf.push_back(addr.args[1]);
+
+            addInstruction(args...);
+            
+        }
+
+        void addInstruction(instruction in);
+
+        void addInstruction(Address addr);
        
         struct HangingJump {     // The compiler doesn't know ahead of time where the jump locations will be in memory, so it holds on to these references and fills in the details later once every BytecodeBlock is compiled
 
@@ -57,10 +68,6 @@ namespace Eval {
     protected:
 
         managed_vec<instruction> ibuf;    // Helper object
-
-        void processInstruction(); // Helper function
-
-        void eliminateRedundantMov(int starting_idx);
 
     };
 

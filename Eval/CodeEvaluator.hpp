@@ -39,7 +39,7 @@ namespace Eval {
 
         void evaluate(AST::CodePiece*, bool inside_declaration = false);
 
-        void newEvaluator(void* body, void* code_piece, AST::TypeList& var_types);
+        void newEvaluator(void* body, void* code_piece, AST::TypeList& var_types, bool is_else_code);
 
         bool consolidateWithChild();
 
