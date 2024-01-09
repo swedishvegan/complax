@@ -127,12 +127,12 @@ To verify that the compiler and VM work, complete the following steps:
 You should see the single line "Hello world" printed out to the terminal.
 
 #### __Quick guide to the complax terminal interface:__
- - The "complax" compiler takes the following arguments: &nbsp; ```[input filename] [output filename] [optional flags (--emit_syntax_tree or --emit_bytecode)]```, where:
+ - The ```lax``` compiler takes the following arguments: &nbsp; ```[input filename] [output filename] [optional flags (--emit_syntax_tree or --emit_bytecode)]```, where:
      - ```[input filename]``` is a valid filepath to any file containing Lax code. The ".lax" ending is just a convention and is not required.
      - ```[output filename]``` is a valid filepath that the Lax executable code will be saved to. The ".l" ending is just a convention and is not required.
      - ```--emit_syntax_tree``` outputs a visual representation of the syntax tree for each file that is parsed for the sake of debugging. For each file "filepath" parsed by the compiler, a second file "filepath.syntax_tree" is generated.
      - ```--emit_bytecode``` outputs a visual representation of the resulting Lax executable for the sake of debugging. Next to the Lax executable "output_filepath", a second file "output_filepath.bytecode" is generated.
- - The "complax" VM takes the following arguments: &nbsp; ```[optional flags (--jit or --interpret)] [input filename]```, where:
+ - The ```lax``` VM takes the following arguments: &nbsp; ```[optional flags (--jit or --interpret)] [input filename]```, where:
      - ```[input filename]``` is a valid filepath to the Lax executable to run.
      - ```--jit``` is fairly self-explanatory: it signals the VM to use the JIT compiler at runtime. As of right now, the VM uses interpreted mode by default and the JIT compiler must be explicitly enabled.
      - ```--interpret``` is the default option and does not need to be explicitly specified. If ```--jit``` and ```--interpret``` are both specified, an error will be generated.
