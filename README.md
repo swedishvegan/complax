@@ -137,7 +137,7 @@ You should see the single line "Hello world" printed out to the terminal.
      - ```--jit``` is fairly self-explanatory: it signals the VM to use the JIT compiler at runtime. As of right now, the VM uses interpreted mode by default and the JIT compiler must be explicitly enabled.
      - ```--interpret``` is the default option and does not need to be explicitly specified. If ```--jit``` and ```--interpret``` are both specified, an error will be generated.
 
-There are two other example programs in the main directory of the repository: "pascal.lax" and "prime_numbers.lax". Feel free to try them out and look into the source code in order to get better acquainted with the language's syntax.
+There are a few example Lax programs in the main directory of this repo. Feel free to try them out and look into the source code in order to get better acquainted with the language.
 
 ## Syntax <a name="pt3"></a>
 
