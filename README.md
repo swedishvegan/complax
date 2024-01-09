@@ -127,7 +127,7 @@ To verify that the compiler and VM work, complete the following steps:
 You should see the single line "Hello world" printed out to the terminal.
 
 #### __Quick guide to the complax terminal interface:__
- - The ```lax``` compiler takes the following arguments: &nbsp; ```[input filename] [output filename] [optional flags (--emit_syntax_tree or --emit_bytecode)]```, where:
+ - The ```complax``` compiler takes the following arguments: &nbsp; ```[input filename] [output filename] [optional flags (--emit_syntax_tree or --emit_bytecode)]```, where:
      - ```[input filename]``` is a valid filepath to any file containing Lax code. The ".lax" ending is just a convention and is not required.
      - ```[output filename]``` is a valid filepath that the Lax executable code will be saved to. The ".l" ending is just a convention and is not required.
      - ```--emit_syntax_tree``` outputs a visual representation of the syntax tree for each file that is parsed for the sake of debugging. For each file "filepath" parsed by the compiler, a second file "filepath.syntax_tree" is generated.
