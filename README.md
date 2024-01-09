@@ -99,7 +99,7 @@ Find Next Leap Year {    // implementing the function "next leap year after {yea
 
 Sorry, I don't have precompiled binaries yet for the current release of Lax.
 
-### Building the complax library from source <a name="pt2.1"></a>
+### Building the complax library from source <a name="pt2.2"></a>
 
 If there is no release for your particular coding environment, or if you're having any issues with the pre-compiled binaries, you can simply build the complax library from source. Building the complax library should be relatively straightforward as long as you have git, CMake, and a compiler that supports the C++11 standard. Here's what you need to do:
 
@@ -114,7 +114,7 @@ If there is no release for your particular coding environment, or if you're havi
 
 You should see two executables in the folder you chose to build binaries to: ```complax``` and ```lax```.
 
-### Using the Lax compiler and virtual machine <a name="pt2.2"></a>
+### Using the Lax compiler and virtual machine <a name="pt2.3"></a>
 
 The repository comes with a few sample Lax programs to test out the compiler. If you're not building from source, you'll need to download these programs and move them into the same folder as the binaries.
 
