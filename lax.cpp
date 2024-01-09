@@ -6,6 +6,49 @@
 
 using namespace Eval;
 
+bool use_jit = false;
+bool argparse_fail = false;
+
+std::string argparse(int argc, char** argv) {
+
+    if (argc < 2) return "";
+
+    bool jit = false;
+    bool interpret = false;
+
+    for (int i = 1; i < argc - 1; i++) {
+
+        std::string flag = argv[i];
+
+        if (flag == "--jit") jit = true;
+        else if (flag == "--interpret") interpret = true;
+
+        else {
+
+            std::cout << "Unrecognized flag: '" << flag << "'. Argument format: [optional flags (--jit or --interpret)] [input filename]\n";
+
+            argparse_fail = true;
+            return "";
+
+        }
+
+    }
+
+    if (jit && interpret) {
+
+        std::cout << "Flags --jit and --interpret cannot both be specified.\n";
+
+        argparse_fail = true;
+        return "";
+
+    }
+
+    use_jit = jit;
+
+    return argv[argc - 1];
+
+}
+
 bool init(std::string filename) {
 
     try {
@@ -184,15 +227,16 @@ inline char* next_addr() {
 #define localStackElement(T, idx) (*(T*)(stack + sp + idx))
 
 int main(int argc, char** argv) {
-    
-    if (argc < 2) { std::cout << "Invalid number of arguments.\n"; return 1; }
 
     srand(clock());
 
 #define finish(code) if (heap) delete[] heap; if (stack) delete[] stack; if (program) delete[] program; return code
 #define nothing_accessed() { std::cout << "\nAttempt to access nothing.\n"; finish(1); }
 
-    if (!init(argv[1])) { finish(1); }
+    auto filename = argparse(argc, argv);
+    
+    if (argparse_fail) { finish(1); }
+    if (!init(filename)) { finish(1); }
 
     timer.reset();
     
@@ -251,7 +295,7 @@ int main(int argc, char** argv) {
 
     case inst::scpbeg:
 
-    {
+    if (use_jit) {
 
         auto jit = method_jit::jit();
         jit.func((integer)(stack + sp));

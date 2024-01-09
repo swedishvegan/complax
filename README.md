@@ -36,17 +36,9 @@
 
 ## Introduction <a name="pt1"></a>
 
-**NOTE: Lax is currently still in development. I am making the project public in order to allow feedback, suggestions, and possibly outside contributions while the language is early in its development phase. The following features are still in progress and will be released in the near future, more or less in this order:**
+**UPDATE: As of 1/9/2023, the Lax virtual machine now supports JIT compilation. Massive shoutout to the incredible [SLJIT library](https://github.com/zherczeg/sljit) for making this possible. JIT support is currently experimental and hasn't yet been tested on all platforms, so the VM still runs in interpreted mode by default. See [Using the Lax compiler and virtual machine](#pt2.3) for info on how to use the JIT.**
 
- - **Arrays**
- - **User-defined structures**
- - **Garbage collection**
- - **More detailed error messages**
- - **File I/O, math functions, and other standard functionality**
- - **Function pointers**
- - **Support for JIT (and possibly AOT) compilation**
- - **Multithreading support**
- - **C++ interface for compiling custom dynamic library-based modules**
+**NOTE: Lax is currently still in development. I am making the project public in order to allow feedback, suggestions, and possibly outside contributions while the language is early in its development phase.**
 
 Are you tired of other compilers telling you what to do all the time? Have you ever wanted to express your ideas in a particular way, but it just wouldn't quite conform to the syntax of the language you use? Ever wished you could just type "do the thing" and it would just magically work?
 
@@ -61,8 +53,9 @@ Sounds weird, right? Are you feeling confused? If so, please keep reading! After
 ### Quick facts about Lax:
  - __Lax is a statically typed language, but has dynamically typed syntax.__ This means that although all data types are known at compile time, you can write your code without ever thinking about them. Thus, Lax has the "feel" of a dynamically typed language, while avoiding the performance penalties and confusing runtime errors that come with other dynamically typed languages.
  - __Lax utilizes function templates and type inference automatically.__ Wondering how a language can be statically typed without even having types declared? This is achieved using function templating, combined with type inference. The types of variables are inferred from the types of the expressions that they are initialized to. Each time a function is called, the compiler generates a new instantiation of the templated function based on the data types of the arguments passed to it.
- - __Lax runs on a virtual machine and is "compile once, run anywhere."__ Lax code compiles to low-level bytecode, which is cross platform and runs on any 64-bit system that has the Lax virtual machine installed. In the future, JIT and AOT compilation will likely be supported, as the Lax bytecode format would be fairly easy to translate into machine instrucitons.
+ - __Lax runs on a virtual machine and is "compile once, run anywhere."__ Lax code compiles to low-level bytecode, which is cross platform and runs on any 64-bit system that has the Lax virtual machine installed.
  - __Lax has a highly extensible syntax and grammar.__ There is almost no limit on what could be considered valid syntax in Lax. See [Syntax](#pt3) and specifically [Functions and pattern matching](#pt3.4) for more information on what makes the Lax syntax so flexible.
+ - __Lax is JIT compiled to machine code.__ Despite its flexible syntax, Lax offers performance on par with ahead-of-time compiled code.
 
 For now, take a look at this simple leap-year finding example program to get a feel for what Lax code looks like.
 
@@ -128,12 +121,8 @@ The repository comes with a few sample Lax programs to test out the compiler. If
 To verify that the compiler and VM work, complete the following steps:
 
 1. Navigate into the directory with the binaries: &nbsp; ```cd [path to binaries]```
-2. Compile the "hello.lax" file:
-    - On Windows: &nbsp; ```complax hello.lax hello.l```
-    - On Linux/MacOS: &nbsp; ```./complax hello.lax hello.l```
-3. Run the Lax executable:
-    - On Windows: &nbsp; ```lax hello.l```
-    - On Linux/MacOS: &nbsp; ```./lax hello.l```
+2. Compile the "hello.lax" file: ```./complax hello.lax hello.l```
+3. Run the Lax executable: ```./lax hello.l```
 
 You should see the single line "Hello world" printed out to the terminal.
 
@@ -143,7 +132,10 @@ You should see the single line "Hello world" printed out to the terminal.
      - ```[output filename]``` is a valid filepath that the Lax executable code will be saved to. The ".l" ending is just a convention and is not required.
      - ```--emit_syntax_tree``` outputs a visual representation of the syntax tree for each file that is parsed for the sake of debugging. For each file "filepath" parsed by the compiler, a second file "filepath.syntax_tree" is generated.
      - ```--emit_bytecode``` outputs a visual representation of the resulting Lax executable for the sake of debugging. Next to the Lax executable "output_filepath", a second file "output_filepath.bytecode" is generated.
- - The ```lax``` virtual machine takes only one argument, which is the name of the Lax executable to be run. (Terminal/ command-line arguments have not been implemented yet.)
+ - The "complax" VM takes the following arguments: &nbsp; ```[optional flags (--jit or --interpret)] [input filename]```, where:
+     - ```[input filename]``` is a valid filepath to the Lax executable to run.
+     - ```--jit``` is fairly self-explanatory: it signals the VM to use the JIT compiler at runtime. As of right now, the VM uses interpreted mode by default and the JIT compiler must be explicitly enabled.
+     - ```--interpret``` is the default option and does not need to be explicitly specified. If ```--jit``` and ```--interpret``` are both specified, an error will be generated.
 
 There are two other example programs in the main directory of the repository: "pascal.lax" and "prime_numbers.lax". Feel free to try them out and look into the source code in order to get better acquainted with the language's syntax.
 
@@ -306,7 +298,7 @@ You can optionally place commas and colons after expressions, or after the ```el
 
 #### Data types <a name="pt3.1.6"></a>
 
-Lax comes with four built-in "primitive" data types: &nbsp; ```integer```, ```decimal```, ```boolean```, and ```string```.
+Lax comes with five built-in "primitive" data types: &nbsp; ```integer```, ```decimal```, ```boolean```, ```ascii```, and ```string```.
 
  - ```integer``` values are for whole numbers, like 1, -1, 2, -2, etc.
  - ```decimal``` values are for any numeric value, either whole numbers or fractions, like 3.14, 1.618, etc.
@@ -611,7 +603,7 @@ true
 false
 ```
 
-__NOTE:__ ```is``` __and_ ```islike``` __actually do the exact same thing under the hood, and are completely interchangable. I just thought it was nice to provide both for the sake of greater readability.__
+__NOTE:__ ```is``` __and__ ```islike``` __actually do the exact same thing under the hood, and are completely interchangable. I just thought it was nice to provide both for the sake of greater readability.__
 
 If you want to initialize a variable to be the same type as another variable, you can use the ```typeof``` keyword:
 
