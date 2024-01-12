@@ -1,4 +1,5 @@
 
+#include <inttypes.h>
 #include "./BuiltInFunctions.hpp"
 
 void _getchar() { auto dummy = getchar(); }
@@ -47,9 +48,9 @@ string alloc_string(const char* source) {
 
 #define typecast_impl(name, primitive, format)                              \
                                                                             \
-string typecast_##name##_string(primitive v) {                              \
+string typecast_##name##_string(name v) {                                   \
                                                                             \
-    pointer len = (pointer)snprintf(strbuffer, 256, format, v);             \
+    pointer len = (pointer)snprintf(strbuffer, 256, format, (primitive)v);  \
     string p_str = alloc(len + 1);                                          \
                                                                             \
     char* str = heap + p_str;                                               \
@@ -60,7 +61,7 @@ string typecast_##name##_string(primitive v) {                              \
                                                                             \
 }
 
-typecast_impl(integer, integer, "%ld")
+typecast_impl(integer, integer, "%" PRId64)
 typecast_impl(decimal, decimal, "%f")
 
 string typecast_ascii_string(ascii a) {
@@ -110,6 +111,8 @@ integer intpow(integer base, integer exp) {
 	return result;
 
 }
+
+decimal decpow(decimal base, decimal exp) { return std::pow(base, exp); }
 
 #define strcomp_impl(op_name, comp)                            \
                                                                \

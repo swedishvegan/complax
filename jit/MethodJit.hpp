@@ -1078,7 +1078,7 @@ inline bool method_jit::jit::next_instruction() {
 
         sljit_emit_fop1(compiler, SLJIT_MOV_F64, SLJIT_FR1, 0, _addr_(1));
 
-        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2(F64, F64, F64), SLJIT_IMM, (sljit_sw)pow);
+        sljit_emit_icall(compiler, SLJIT_CALL, SLJIT_ARGS2(F64, F64, F64), SLJIT_IMM, (sljit_sw)decpow);
 
         next_addr();
 

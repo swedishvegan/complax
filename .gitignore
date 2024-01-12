@@ -17,3 +17,12 @@ complax
 lax
 lax-tests
 tmp
+x64
+Debug
+Release
+complax.dir
+lax.dir
+*.vcxproj*
+*.sln
+*.exe
+*.pdb

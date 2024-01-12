@@ -32,6 +32,7 @@ extern decimal typecast_string_decimal(string);
 
 extern string stradd(string, string);
 extern integer intpow(integer, integer);
+extern decimal decpow(decimal, decimal);
 
 extern bool streq(string, string);
 extern bool strneq(string, string);
