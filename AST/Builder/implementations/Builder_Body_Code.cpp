@@ -13,6 +13,7 @@ AST::Builder_Body_Code::Builder_Body_Code(BuilderID ID, Code::Loader& loader, in
 
 	pattern_match_search_tree = symbols.pattern_match_search_tree.cast<PatternMatchSearchTree>();
 	variable_search_tree = symbols.variable_search_tree.cast<VariableSearchTree>();
+	structure_member_search_tree = symbols.structure_member_search_tree.cast<StructureMemberSearchTree>();
 	vst_initial_table = variable_search_tree->local_symbols;
 	
 	this->main_scope = scope;
@@ -231,7 +232,12 @@ AST::SymbolTableLinker AST::Builder_Body_Code::getSymbols() {
 	if (variable_search_tree != nullptr)
 		variable_search_tree->local_symbols = vst_initial_table.linkWith(local_symbols);
 
-	return syms.attachTree(pattern_match_search_tree.cast<SymbolSearchTreeBase>()).attachTree(variable_search_tree.cast<SymbolSearchTreeBase>());
+	return 
+		syms
+			.attachTree(pattern_match_search_tree.cast<SearchTreeBase>())
+			.attachTree(variable_search_tree.cast<SearchTreeBase>())
+			.attachTree(structure_member_search_tree.cast<SearchTreeBase>())
+		;
 
 }
 

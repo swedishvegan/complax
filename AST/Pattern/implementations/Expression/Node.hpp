@@ -7,6 +7,7 @@
 #include "./../Literal.hpp"
 #include "./../../../Symbol/Symbol.hpp"
 #include "./../../../Symbol/SymbolSearchTree.hpp"
+#include "./../../../Symbol/StructureMemberSearchTree.hpp"
 
 // defines Nodes that makes up an Expression, also defines ExpressionStacks and ValidatorStacks which are used in Expression parsing
 
@@ -159,11 +160,11 @@ namespace AST {
 	struct StructureMemberNode : public Node {
 
 		ptr_Node base;
-		managed_vec<managed_string> members;
+		managed_vec<ptr_StructureMemberInfoBundle> members;
 
 		StructureMemberNode(ptr_Node base);
 
-		void addMember(managed_string, int new_end);
+		void addMember(ptr_StructureMemberInfoBundle, int new_end);
 
 		string toString(int alignment);
 
@@ -173,9 +174,9 @@ namespace AST {
 
 	struct StructureMemberKWNode : public Node {
 
-		managed_string kw;
+		ptr_StructureMemberInfoBundle kw;
 
-		StructureMemberKWNode(managed_string kw, int start, int end);
+		StructureMemberKWNode(ptr_StructureMemberInfoBundle kw, int start, int end);
 
 		string toString(int);
 

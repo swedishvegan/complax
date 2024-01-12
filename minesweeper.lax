@@ -1,0 +1,219 @@
+
+nuke probability = -1.0
+
+width = 0
+height = 0
+
+board = integer array
+
+fence = string
+top fence = string
+
+NUKE = 9
+
+function { < {v1} if {cond} else {v2} > } { if cond return v1 else return v2 }
+
+function { {row} @ {col} } { return width * row + col }
+
+function { square {row}, {col} is covered } { return board[row @ col] < 16 }
+
+function { uncover square {row}, {col} } { board[row @ col] = board[row @ col] % 16 + 16 }
+
+function { uncover region starting at {row}, {col} } returns nothing {
+
+    if row < 0 or row >= height, return nothing
+    if col < 0 or col >= width, return nothing
+    if not square row, col is covered, return nothing
+
+    uncover square row, col
+    
+    num neighbors = board[row @ col] % 16
+    if num neighbors > 0 and num neighbors < 9, return nothing
+
+    uncover region starting at row - 1, col
+    uncover region starting at row + 1, col
+    uncover region starting at row, col - 1
+    uncover region starting at row, col + 1
+
+}
+
+function { number of neighboring nukes at {row}, {col} } {
+    
+    u = row > 0
+    d = row < height - 1
+    l = col > 0
+    r = col < width - 1
+
+    n = 0
+
+    if u {
+
+        if board[row-1 @ col] == NUKE, n = n + 1
+        if l and board[row-1 @ col-1] == NUKE, n = n + 1
+        if r and board[row-1 @ col+1] == NUKE, n = n + 1
+
+    }
+
+    if d {
+
+        if board[row+1 @ col] == NUKE, n = n + 1
+        if l and board[row+1 @ col-1] == NUKE, n = n + 1
+        if r and board[row+1 @ col+1] == NUKE, n = n + 1
+
+    }
+
+    if l and board[row @ col-1] == NUKE, n = n + 1
+    if r and board[row @ col+1] == NUKE, n = n + 1
+
+    return n
+
+}
+
+function { initialize board } {
+
+    board = integer array of length width * height
+
+    k = 0
+    while k < length of board {
+
+        random val = random integer % 1000 as decimal / 1000
+
+        if random val < nuke probability, board[k] = NUKE
+
+        k = k + 1
+
+    }
+
+    row = 0
+    while row < height {
+
+        col = 0
+        while col < width {
+            
+            if board[row @ col] != NUKE, board[row @ col] = number of neighboring nukes at row, col 
+
+            col = col + 1
+
+        }
+
+        row = row + 1
+
+    }
+
+    k = 0
+
+    fence = "   "
+    top fence = "   "
+
+    while k < width { 
+        
+        top fence = top fence + "  " + (k + 1 as string) + <"" if k > 8 else " ">
+        fence = fence + "|---"
+
+        k = k + 1
+        
+    }
+
+    top fence = top fence + "\n"
+    fence = fence + "|\n"
+
+}
+
+function { print board } {
+
+    output top fence
+    output fence
+
+    row = 0
+    while row < height {
+
+        output row + 1 as string + < "  " if row < 9 else " " >
+
+        col = 0
+        while col < width {
+
+            entry = board[row @ col] % 16
+
+            token = string
+
+            if square row, col is covered, token = "*"
+            else if entry > 0, if entry == NUKE token = "X", else token = entry as string
+            else, token = " "
+
+            output "| " + token + " "
+            col = col + 1
+
+        }
+
+        output "|\n"
+        if row < height - 1 output fence
+
+        row = row + 1
+
+    }
+
+}
+
+start program {
+
+    output "\n\n--- MINESWEEPER ---\n\n"
+
+    first try = true
+
+    while width <= 0 or height <= 0 {
+
+        if not first try, output "Invalid input\n"
+
+        output "Board width: ", width = input as integer
+        output "Board height: ", height = input as integer
+
+        first try = false
+
+    }
+
+    first try = true 
+
+    while nuke probability < 0 or nuke probability > 1 {
+
+        if not first try, output "Invalid input\n"
+
+        output "Nuke probability (from 0 to 1): ", nuke probability = input as decimal
+
+        first try = false
+
+    }
+
+    initialize board
+
+    output "Beginning game...\n\n"
+    print board
+    
+    while true {
+
+        output "\n\n"
+
+        row = -1
+        col = -1
+        first try = true
+
+        while row < 0 or row >= height or col < 0 or col >= width {
+
+            if not first try, output "Invalid input\n"
+
+            output "Row: ", row = input as integer - 1
+            output "Col: ", col = input as integer - 1
+
+            first try = false
+
+        }
+
+        output "\n\n"
+
+        uncover region starting at row, col
+        print board
+
+        if board[row @ col] % 16 == NUKE { output "\n\nYou lost\n\n" break }
+
+    }
+
+}

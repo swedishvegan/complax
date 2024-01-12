@@ -3,7 +3,7 @@
 #include "./CodeEvaluator.hpp"
 #include "./../Code/Bundle.hpp"
 #include "./../util/Timer.hpp"
-
+#include <iostream>
 Eval::Program::Program(int argc, char** argv) {
 
     ptr_Evaluator evaluator;

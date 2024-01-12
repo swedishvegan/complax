@@ -5,6 +5,7 @@
 #include "./../../Pattern/implementations/Declaration.hpp"
 #include "./../../Pattern/implementations/Expression/Expression.hpp"
 #include "./../../Symbol/SymbolSearchTree.hpp"
+#include "./../../Symbol/StructureMemberSearchTree.hpp"
 #include "./../../../Code/Bundle.hpp"
 #include "./../../../Eval/NodeEvaluator.hpp"
 
@@ -314,7 +315,7 @@ bool AST::GlobalScopeBuilder::processPattern(ptr_Pattern p) {
 		allow_body = true;
 		allow_restrictions = true;
 		allow_label = true;
-		if (is_function) allow_returns_kw = true;
+		allow_returns_kw = is_function;
 		precedence_count = 0;
 
 		return true;
@@ -363,6 +364,8 @@ bool AST::GlobalScopeBuilder::processPattern(ptr_Pattern p) {
 		}
 
 		relevant_header->sym->body = is_function ? p.cast<Body_Function>()->builder() : p.cast<Body_Structure>()->builder();
+
+		if (structure_member_search_tree != nullptr) structure_member_search_tree->addStructure(relevant_header->sym);
 
 		allow_body = false;
 		return true;
@@ -506,8 +509,15 @@ AST::SymbolTableLinker AST::GlobalScopeBuilder::getSymbols() {
 	if (variable_search_tree == nullptr && !allow_impinc) variable_search_tree = new VariableSearchTree(syms, SEARCH_TREE_DEPTH);
 	if (variable_search_tree != nullptr) variable_search_tree->local_symbols = relevant_header ? SymbolTableLinker{ relevant_header->table } : SymbolTableLinker{ };
 
+	if (structure_member_search_tree == nullptr) structure_member_search_tree = new StructureMemberSearchTree(syms, SEARCH_TREE_DEPTH);
+
 	if (relevant_header) syms = syms.linkWith(relevant_header->table);
 
-	return syms.attachTree(pattern_match_search_tree.cast<SymbolSearchTreeBase>()).attachTree(variable_search_tree.cast<SymbolSearchTreeBase>());
+	return 
+		syms
+			.attachTree(pattern_match_search_tree.cast<SearchTreeBase>())
+			.attachTree(variable_search_tree.cast<SearchTreeBase>())
+			.attachTree(structure_member_search_tree.cast<SearchTreeBase>());
+		;
 
 }

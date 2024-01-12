@@ -73,6 +73,8 @@ namespace Eval {
 
 		void evaluatePatternMatch(void* pm);     // pm is an AST::PatternMatchNode*
 
+		void evaluateStructureMember(void* sm); // sm is an AST::StructureMemberNode*
+
 		void evaluateBuiltInPatternMatch(void* vsym, ptr_NodeEvaluator lh_eval, ptr_NodeEvaluator rh_eval); // vsym is an AST::HeaderSymbol*
 
 		void evaluateGeneralPatternMatch(void* vsym, AST::TypeList&, managed_vec<ptr_NodeEvaluator>&);

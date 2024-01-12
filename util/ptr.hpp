@@ -28,19 +28,19 @@ template <typename ptr_type>
 struct ptr {
 
 	template <typename cast_type>
-	ptr<cast_type> cast();
+	inline ptr<cast_type> cast();
 
-	ptr();
-	ptr(const ptr&);
-	ptr(const ptr_type*);
+	inline ptr();
+	inline ptr(const ptr&);
+	inline ptr(const ptr_type*);
 
-	void operator = (const ptr&);
-	void operator = (const ptr_type*);
+	inline void operator = (const ptr&);
+	inline void operator = (const ptr_type*);
 
-	ptr_type* operator -> () const;
-	ptr_type& operator * () const;
+	inline ptr_type* operator -> () const;
+	inline ptr_type& operator * () const;
 
-	ptr_type* operator () () const;
+	inline ptr_type* operator () () const;
 
 	bool operator == (const ptr&) const;
 	bool operator == (ptr_type*) const;
@@ -82,31 +82,31 @@ ptr_container_base<_>::ptr_container_base(const void* p) : p(p) { }
 
 template <typename ptr_type>
 template <typename cast_type>
-ptr<cast_type> ptr<ptr_type>::cast() { return ptr_cnt ? ptr<cast_type>(ptr_cnt, nullptr) : ptr<cast_type>(); }
+inline ptr<cast_type> ptr<ptr_type>::cast() { return ptr_cnt ? ptr<cast_type>(ptr_cnt, nullptr) : ptr<cast_type>(); }
 
 template <typename ptr_type>
-ptr<ptr_type>::ptr() { init(nullptr); }
+inline ptr<ptr_type>::ptr() { init(nullptr); }
 
 template <typename ptr_type>
-ptr<ptr_type>::ptr(const ptr& ptr) { copy(ptr); }
+inline ptr<ptr_type>::ptr(const ptr& ptr) { copy(ptr); }
 
 template <typename ptr_type>
-ptr<ptr_type>::ptr(const ptr_type* ptr) { init(ptr); }
+inline ptr<ptr_type>::ptr(const ptr_type* ptr) { init(ptr); }
 
 template <typename ptr_type>
-void ptr<ptr_type>::operator = (const ptr& ptr) { cleanup(); copy(ptr); }
+inline void ptr<ptr_type>::operator = (const ptr& ptr) { cleanup(); copy(ptr); }
 
 template <typename ptr_type>
-void ptr<ptr_type>::operator = (const ptr_type* ptr) { cleanup(); init(ptr); }
+inline void ptr<ptr_type>::operator = (const ptr_type* ptr) { cleanup(); init(ptr); }
 
 template <typename ptr_type>
-ptr_type* ptr<ptr_type>::operator -> () const { return (ptr_type*)ptr_cnt->p; }
+inline ptr_type* ptr<ptr_type>::operator -> () const { return (ptr_type*)ptr_cnt->p; }
 
 template <typename ptr_type>
-ptr_type& ptr<ptr_type>::operator * () const { return *(ptr_type*)(ptr_cnt->p); }
+inline ptr_type& ptr<ptr_type>::operator * () const { return *(ptr_type*)(ptr_cnt->p); }
 
 template <typename ptr_type>
-ptr_type* ptr<ptr_type>::operator () () const { if (ptr_cnt) if (ptr_cnt->p) return (ptr_type*)ptr_cnt->p; return nullptr; }
+inline ptr_type* ptr<ptr_type>::operator () () const { if (ptr_cnt) if (ptr_cnt->p) return (ptr_type*)ptr_cnt->p; return nullptr; }
 
 template <typename ptr_type>
 bool ptr<ptr_type>::operator == (const ptr& rh) const { return ptr_cnt ? (rh.ptr_cnt ? ptr_cnt->p == rh.ptr_cnt->p : false) : !rh.ptr_cnt; }

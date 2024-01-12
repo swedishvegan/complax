@@ -3,7 +3,7 @@
 
 #include <initializer_list>
 #include "./SymbolTable.hpp"
-#include "./SymbolSearchTreeBase.hpp"
+#include "./SearchTree.hpp"
 #include "./../../util/Printable.hpp"
 #include "./../../util/vec.hpp"
 
@@ -23,8 +23,9 @@ namespace AST {
 		ptr_SymbolTable table = nullptr; 
 		ptr_SymbolTableLinker next = nullptr;
 
-		ptr_SymbolSearchTreeBase pattern_match_search_tree; // Expression_Scanner iterates over search trees, instead of iterating over the symbol tables directly
-		ptr_SymbolSearchTreeBase variable_search_tree;
+		ptr_SearchTreeBase pattern_match_search_tree; // Expression_Scanner iterates over search trees, instead of iterating over the symbol tables directly
+		ptr_SearchTreeBase variable_search_tree;
+		ptr_SearchTreeBase structure_member_search_tree;
 
 		SymbolTableLinker();
 		SymbolTableLinker(std::initializer_list<ptr_SymbolTable>);
@@ -37,7 +38,7 @@ namespace AST {
 		SymbolTableLinker linkWith(ptr_SymbolTable table);
 		SymbolTableLinker linkWith(SymbolTableLinker linker);
 		
-		SymbolTableLinker attachTree(ptr_SymbolSearchTreeBase search_tree);
+		SymbolTableLinker attachTree(ptr_SearchTreeBase search_tree);
 
 		Iterator iterate(SymbolID); // Used to conveniently iterate over every Symbol of a particular type within the SymbolTableLinker
 

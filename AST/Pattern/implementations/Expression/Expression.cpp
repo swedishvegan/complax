@@ -17,7 +17,7 @@ unsigned long long AST::Expression::total_successors_generated = 0;
 AST::Scanner_Expression::Scanner_Expression(Code::Loader& loader, int start, int end, int cur_best_start, SymbolTableLinker symbols, bool is_top_level)
 	: Scanner(loader, start, end, cur_best_start), loader(loader), start(start), end(end), symbols(symbols), is_top_level(is_top_level) {
 
-	if (cache) getWinner(node_cache[start]); if (result != nullptr)
+	if (cache) getWinner(node_cache[start]);
 	if (result != nullptr) return;
 
 	ExpressionStack expression_stack;
@@ -230,7 +230,7 @@ void AST::Scanner_Expression::generateVariableSuccessors(ExpressionStack&, Valid
 
 		if (match >= 0) {
 
-			auto sym = it.cur_bundle->syms[0];
+			auto sym = it.cur_bundle->elements[0];
 			if (match >= 0) successors.push_back(new VariableNode(sym, start, match));
 
 		}
@@ -269,7 +269,7 @@ void AST::Scanner_Expression::generateFillerSuccessors(ExpressionStack& expressi
 
 		if (match >= 0) {
 
-			auto sym = it.cur_bundle->firstSym();
+			auto sym = it.cur_bundle->elements[0].cast<HeaderSymbol>();
 			int sym_idx = sym->filler_indices[0];
 
 			successors.push_back(new FillerNode(it.cur_bundle, sym_idx, start, match));
@@ -292,7 +292,7 @@ void AST::Scanner_Expression::generateIntermediateFillerSuccessors(ExpressionSta
 		if (val.distance != 1) continue;
 
 		auto bundle = val.bundle;
-		auto example_sym = bundle->syms[0].cast<HeaderSymbol>();
+		auto example_sym = bundle->elements[0].cast<HeaderSymbol>();
 
 		int sym_idx = example_sym->filler_indices[val.next_filler];
 		auto& var_name = example_sym->operator[](sym_idx).name;
@@ -316,7 +316,7 @@ void AST::Scanner_Expression::generateStructureMemberSuccessors(ExpressionStack&
 	if (new_start < 0) return;
 
 	auto node = expression_stack.top();
-
+	
 	if (node->ID == NodeID::Filler) {
 
 		if (validator_stack.size() == 0) return;
@@ -328,7 +328,27 @@ void AST::Scanner_Expression::generateStructureMemberSuccessors(ExpressionStack&
 
 	}
 
-	auto it = symbols.iterate(SymbolID::Structure);
+	auto search_tree = symbols.structure_member_search_tree.cast<StructureMemberSearchTree>();
+	auto it = search_tree->iterate(_genSearchKW(loader, new_start));
+
+	while (!it.finished()) {
+
+		int match = matchString(loader, it.cur_bundle->test_kw.c_str(), new_start);
+
+		if (match >= 0) {
+
+			auto sym = it.cur_bundle->elements[0].cast<HeaderSymbol>();
+			int sym_idx = sym->filler_indices[0];
+
+			successors.push_back(new StructureMemberKWNode(it.cur_bundle, start, match));
+
+		}
+
+		it.next();
+		
+	}
+
+	/*auto it = symbols.iterate(SymbolID::Structure);
 	int orig_num_succs = successors.size();
 
 	while (!it.finished()) {
@@ -356,8 +376,8 @@ void AST::Scanner_Expression::generateStructureMemberSuccessors(ExpressionStack&
 
 		it = it.next();
 
-	}
-
+	}*/
+	
 }
 
 void AST::Scanner_Expression::generateLabelSuccessors(ExpressionStack& expression_stack, ValidatorStack& validator_stack, int start, NodeList& successors) {
@@ -453,14 +473,14 @@ void AST::Scanner_Expression::updateValidators(ExpressionStack& expression_stack
 
 		if (filler_node) 
 			if (v.distance == 0 && v.next_filler >= 0) 
-				if (filler_node->sym_idx == v.bundle->firstSym()->filler_indices[v.next_filler]) 
+				if (filler_node->sym_idx == v.bundle->elements[0].cast<HeaderSymbol>()->filler_indices[v.next_filler]) 
 					filler_collision = &v;
 
 	}
 
 	if (filler_collision) {
 
-		auto collision_sym = filler_collision->bundle->firstSym();
+		auto collision_sym = filler_collision->bundle->elements[0].cast<HeaderSymbol>();
 		int new_distance = collision_sym->distanceToNextFiller(filler_collision->next_filler);
 
 		filler_collision->next_filler++;
@@ -477,7 +497,7 @@ bool AST::Scanner_Expression::patternMatchExists(ExpressionStack& expression_sta
 	if (validator_stack.size() == 0) return false;
 
 	auto val = validator_stack.top();
-	auto val_sym = val.bundle->firstSym();
+	auto val_sym = val.bundle->elements[0].cast<HeaderSymbol>();
 
 	if (val.next_filler >= 0) return false;
 	if (val.distance > 0) return false;
@@ -493,7 +513,7 @@ bool AST::Scanner_Expression::patternMatchExists(ExpressionStack& expression_sta
 
 		auto filler_node = node.cast<FillerNode>();
 
-		if (filler_node->sym_idx != filler_node->bundle->firstSym()->filler_indices[0]) pattern_matched = true;
+		if (filler_node->sym_idx != filler_node->bundle->elements[0].cast<HeaderSymbol>()->filler_indices[0]) pattern_matched = true;
 
 		else if (filler_node->bundle == val.bundle || val.distance < 0) {
 
@@ -514,7 +534,7 @@ bool AST::Scanner_Expression::patternMatchExists(ExpressionStack& expression_sta
 bool AST::Scanner_Expression::collapsePatternMatch(ExpressionStack& expression_stack, ValidatorStack& validator_stack, Validator* v) {
 	
 	auto val = v ? *v : validator_stack.top();
-	auto val_sym = val.bundle->firstSym();
+	auto val_sym = val.bundle->elements[0];
 	int match_end_index = val.index + val_sym->size();
 
 	for (int i = val.index; i < match_end_index; i++) {
@@ -555,7 +575,7 @@ bool AST::Scanner_Expression::createValidator(ExpressionStack& expression_stack,
 	auto filler_node = node.cast<FillerNode>();
 
 	auto bundle = filler_node->bundle;
-	auto sym = bundle->firstSym();
+	auto sym = bundle->elements[0].cast<HeaderSymbol>();
 	
 	if (filler_node->sym_idx != sym->filler_indices[0]) return true;
 	if (getArgumentStreakLength(expression_stack, 1) < filler_node->sym_idx) return false;
@@ -660,8 +680,8 @@ void AST::Scanner_Expression::getWinner(NodeList& candidates) {
 				error.error = true;
 				error.info = "Two symbols with the same signature have conflicting precedences.";
 				
-				auto sym1 = (HeaderSymbol*)bundle->syms[bundle->conflict_first]();
-				auto sym2 = (HeaderSymbol*)bundle->syms[bundle->conflict_second]();
+				auto sym1 = (HeaderSymbol*)bundle->elements[bundle->conflict_first]();
+				auto sym2 = (HeaderSymbol*)bundle->elements[bundle->conflict_second]();
 
 				auto header1 = (Builder*)sym1->header;
 				auto header2 = (Builder*)sym2->header;

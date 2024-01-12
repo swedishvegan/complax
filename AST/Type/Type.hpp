@@ -16,6 +16,21 @@ namespace AST {
 	using TypeID = int;
 	using TypeList = managed_vec<TypeID>; // TypeLists are convenient ways of bundling together a list of TypeIDs into one single TypeID
 
+	struct StructureInstantiation {
+
+		void* sym; // AST::HeaderSymbol*
+		TypeList element_types;
+
+	};
+
+	inline bool operator < (const StructureInstantiation& lh, const StructureInstantiation& rh) {
+
+		if (lh.sym < rh.sym) return true;
+		if (lh.sym > rh.sym) return false;
+		return lh.element_types < rh.element_types;
+		 
+	} // Needed for std::map
+
 	struct Type : public Printable  { // Wrapper around TypeID with some associated helper functions
 
 		enum {
@@ -40,11 +55,13 @@ namespace AST {
 
 		Type(TypeID);
 
-		static Type fromTypeList(TypeList& type_list);
+		static Type fromTypeList(const TypeList& type_list);
 		static Type fromArray(TypeID contined_type);
+		static Type fromStructure(const StructureInstantiation& structure);
 
-		const TypeList& getTypeList();   // If type_class is TypeList, returns the TypeList corresponding to ID; otherwise, returns empty array
-		TypeID getArrayContainedType(); // If type_class is Array, returns the contained type of the array type corresponding to ID; otherwise, returns Nothing
+		const TypeList& getTypeList();                             // If type_class is TypeList, returns the TypeList corresponding to ID; otherwise, returns empty array
+		TypeID getArrayContainedType();                            // If type_class is Array, returns the contained type of the array type corresponding to ID; otherwise, returns Nothing
+		const StructureInstantiation& getStructureInstantiation(); // If type_class is Structure, returns the instantiation info for the structure type; otherwise, returns default empty StructureInstantiation object
 
 		bool is(Type); // More sophisticated than simple equality; not symmetric
 		bool isConcrete();
@@ -53,12 +70,12 @@ namespace AST {
 
 	protected:
 
-		Type(TypeList& type_list, Class type_class);
+		Type(const TypeList& type_list, Class type_class);
 
 		void determineClass();
 
 		template <typename key_type>
-		static TypeID getValueFromKey(managed_map<key_type, TypeID>& kv_map, managed_map<TypeID, key_type>& vk_map, TypeID& next_free_val, key_type& key, int increment) {
+		static TypeID getValueFromKey(managed_map<key_type, TypeID>& kv_map, managed_map<TypeID, key_type>& vk_map, TypeID& next_free_val, const key_type& key, int increment) {
 
 			auto find_match = kv_map.find(key);
 

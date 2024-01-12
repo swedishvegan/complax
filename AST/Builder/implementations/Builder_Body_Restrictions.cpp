@@ -11,6 +11,7 @@ AST::Builder_Body_Restrictions::Builder_Body_Restrictions(Code::Loader& loader, 
 	this->symbols = symbols.linkWith(table);
 	this->pattern_match_search_tree = symbols.pattern_match_search_tree.cast<PatternMatchSearchTree>();
 	this->variable_search_tree = symbols.variable_search_tree.cast<VariableSearchTree>();
+	this->structure_member_search_tree = symbols.structure_member_search_tree.cast<StructureMemberSearchTree>();
 	
 	if (!findHeaderTable()) return;
 
@@ -123,7 +124,16 @@ bool AST::Builder_Body_Restrictions::processPattern(ptr_Pattern p) {
 
 }
 
-AST::SymbolTableLinker AST::Builder_Body_Restrictions::getSymbols() { return symbols.attachTree(pattern_match_search_tree.cast<SymbolSearchTreeBase>()).attachTree(variable_search_tree.cast<SymbolSearchTreeBase>()); }
+AST::SymbolTableLinker AST::Builder_Body_Restrictions::getSymbols() { 
+
+	return 
+		symbols
+			.attachTree(pattern_match_search_tree.cast<SearchTreeBase>())
+			.attachTree(variable_search_tree.cast<SearchTreeBase>())
+			.attachTree(structure_member_search_tree.cast<SearchTreeBase>())
+		;
+
+}
 
 bool AST::Builder_Body_Restrictions::findHeaderTable() {
 

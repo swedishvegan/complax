@@ -50,7 +50,7 @@ void AST::Node::updateReferenceCounts() {
 
 		auto pm = (PatternMatchNode*)this;
 
-		for (auto sym : pm->bundle->syms) sym->num_references++;
+		for (auto sym : pm->bundle->elements) sym->num_references++;
 		for (auto n : pm->components) n->updateReferenceCounts();
 
 	}
@@ -81,9 +81,9 @@ AST::SymbolBundle* AST::Node::findPrecedenceConflicts() {
 		auto pm = (PatternMatchNode*)this;
 		auto bundle = pm->bundle;
 
-		if (bundle->needs_precedence_check) {
+		if (bundle->has_unacknowledged_updates) {
 			
-			auto& syms = bundle->syms;
+			auto& syms = bundle->elements;
 
 			for (int i = 0; i < syms.size(); i++) for (int j = i + 1; j < syms.size(); j++) {
 
@@ -106,7 +106,7 @@ AST::SymbolBundle* AST::Node::findPrecedenceConflicts() {
 
 			}
 
-			bundle->needs_precedence_check = false;
+			bundle->has_unacknowledged_updates = false;
 
 		}
 
@@ -293,7 +293,7 @@ string AST::KeywordNode::toString(int) { return (ID == NodeID::Variable ? "Varia
 
 AST::VariableNode::VariableNode(ptr_Symbol sym, int start, int end) : KeywordNode(NodeID::Variable, sym, 0, start, end) { }
 
-AST::FillerNode::FillerNode(ptr_SymbolBundle bundle, int sym_idx, int start, int end) : KeywordNode(NodeID::Filler, bundle->firstSym().cast<Symbol>(), sym_idx, start, end), bundle(bundle) { }
+AST::FillerNode::FillerNode(ptr_SymbolBundle bundle, int sym_idx, int start, int end) : KeywordNode(NodeID::Filler, bundle->elements[0], sym_idx, start, end), bundle(bundle) { }
 
 AST::PatternMatchNode::PatternMatchNode(ptr_SymbolBundle bundle) : Node(NodeID::PatternMatch), bundle(bundle) { }
 
@@ -309,7 +309,7 @@ void AST::PatternMatchNode::addComponent(ptr_Node node) {
 string AST::PatternMatchNode::toString(int alignment) {
 
 	string desc;
-	auto sym = bundle->firstSym();
+	auto sym = bundle->elements[0].cast<HeaderSymbol>();
 
 	if (sym->description.size() > 0) desc = sym->description;
 	else desc = "PatternMatch";
@@ -323,7 +323,7 @@ string AST::PatternMatchNode::toString(int alignment) {
 
 AST::StructureMemberNode::StructureMemberNode(ptr_Node base) : Node(NodeID::StructureMember), base(base) { start = base->start; end = base->end; }
 
-void AST::StructureMemberNode::addMember(managed_string member, int new_end) { members.push_back(member); end = new_end; }
+void AST::StructureMemberNode::addMember(ptr_StructureMemberInfoBundle member, int new_end) { members.push_back(member); end = new_end; }
 
 string AST::StructureMemberNode::toString(int alignment) {
 
@@ -333,15 +333,15 @@ string AST::StructureMemberNode::toString(int alignment) {
 
 	s += indent(alignment + 1) + "MemberTrace:\n";
 
-	for (int i = 0; i < members.size(); i++) s += indent(alignment + 2) + members[i].c_str() + (i < members.size() - 1 ? "\n" : "");
+	for (int i = 0; i < members.size(); i++) s += indent(alignment + 2) + members[i]->getSignature()->c_str() + (i < members.size() - 1 ? "\n" : "");
 
 	return s;
 
 }
 
-AST::StructureMemberKWNode::StructureMemberKWNode(managed_string kw, int start, int end) : Node(NodeID::StructureMemberKW), kw(kw) { this->start = start; this->end = end; }
+AST::StructureMemberKWNode::StructureMemberKWNode(ptr_StructureMemberInfoBundle kw, int start, int end) : Node(NodeID::StructureMemberKW), kw(kw) { this->start = start; this->end = end; }
 
-string AST::StructureMemberKWNode::toString(int) { return "MemberKWNode:   " + string(kw.c_str()); }
+string AST::StructureMemberKWNode::toString(int) { return "MemberKWNode:   " + string(kw->getSignature()->c_str()); }
 
 AST::LabelNode::LabelNode(ptr_HeaderSymbol sym, int start, int end) : Node(NodeID::Label), sym(sym) { this->start = start; this->end = end; }
 

@@ -60,9 +60,8 @@ string typecast_##name##_string(primitive v) {                              \
                                                                             \
 }
 
-typecast_impl(integer, long, "%ld")
+typecast_impl(integer, integer, "%ld")
 typecast_impl(decimal, decimal, "%f")
-
 
 string typecast_ascii_string(ascii a) {
 

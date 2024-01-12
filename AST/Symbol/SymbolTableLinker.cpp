@@ -55,14 +55,13 @@ AST::SymbolTableLinker AST::SymbolTableLinker::linkWith(SymbolTableLinker linker
 	
 }
 
-AST::SymbolTableLinker AST::SymbolTableLinker::attachTree(ptr_SymbolSearchTreeBase search_tree) { 
+AST::SymbolTableLinker AST::SymbolTableLinker::attachTree(ptr_SearchTreeBase search_tree) { 
 	
 	if (search_tree == nullptr) return *this;
 
-	auto sym_search_tree = search_tree.cast<SymbolSearchTree>();
-
-	if (sym_search_tree->bundle_symbols) pattern_match_search_tree = search_tree;
-	else variable_search_tree = search_tree;
+	if (search_tree->ID == SearchTreeID::PatternMatch) pattern_match_search_tree = search_tree;
+	else if (search_tree->ID == SearchTreeID::Variable) variable_search_tree = search_tree;
+	else if (search_tree->ID == SearchTreeID::StructureMember) structure_member_search_tree = search_tree;
 	
 	return *this; 
 	

@@ -89,4 +89,4 @@ bool AST::Builder_Body_Precedence::processPattern(ptr_Pattern p) {
 
 }
 
-AST::SymbolTableLinker AST::Builder_Body_Precedence::getSymbols() { return symbols.attachTree(variable_search_tree.cast<SymbolSearchTreeBase>()); }
+AST::SymbolTableLinker AST::Builder_Body_Precedence::getSymbols() { return symbols.attachTree(variable_search_tree.cast<SearchTreeBase>()); }

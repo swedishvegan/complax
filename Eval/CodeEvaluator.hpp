@@ -22,7 +22,11 @@ namespace Eval {
 
         EvaluatorProgress* progress;
 
+        bool is_structure = false;
         bool finished = false;
+
+        int local_offset;
+
         enum ConstantConditionValue { None, True, False }; // Used to skip over unreachable code blocks
 
         void loadSymbolTypes(void* symbol_table, AST::TypeList& types);

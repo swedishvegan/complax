@@ -30,8 +30,9 @@ namespace AST {
 
 		ptr_SymbolTable table; // Every Builder creates a SymbolTable and fills it up as it scans for Patterns
 
-		ptr_PatternMatchSearchTree pattern_match_search_tree; // See "AST/Symbol/SymbolSearchTree.hpp"
+		ptr_PatternMatchSearchTree pattern_match_search_tree; // See "AST/Symbol/SearchTree.hpp"
 		ptr_VariableSearchTree variable_search_tree;
+		ptr_StructureMemberSearchTree structure_member_search_tree;
 	
 		Builder(BuilderID, Code::Loader&, int start, int end); // Builds the subset of the code in the range [start, end)
 

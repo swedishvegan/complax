@@ -141,6 +141,8 @@ void Eval::NodeEvaluator::construct(void* vnode, void* vexp) {
 
 	else if (nid == AST::NodeID::PatternMatch) evaluatePatternMatch(node);
 
+	else if (nid == AST::NodeID::StructureMember) evaluateStructureMember(node);
+
 }
 
 void Eval::NodeEvaluator::evaluateArrayInitializer(void* ai) {
@@ -247,7 +249,7 @@ void Eval::NodeEvaluator::evaluateArrayInitializer(void* ai) {
 
 	setEvalType(AST::Type::fromArray(cur_type).ID);
 
-	if (Evaluator::is_evaluating && needs_val) {
+	if (bytecode != nullptr) {
 
 		for (int i = 0; i < child_evaluators.size(); i++) {
 
@@ -287,7 +289,7 @@ void Eval::NodeEvaluator::evaluateLiteral(void* lt) {
 
 	else if (eval_type == AST::Type::Decimal) value<Decimal>() = stof<Decimal>(l->info);
 
-	if (Evaluator::is_evaluating && needs_val && eval_type != AST::Type::Array) { _gen_literal_address(); }
+	if (bytecode != nullptr && eval_type != AST::Type::Array) { _gen_literal_address(); }
 
 	return;
 
@@ -316,7 +318,7 @@ void Eval::NodeEvaluator::evaluateVariable(void* vr) {
 
 	}
 
-	if (Evaluator::is_evaluating && needs_val) {
+	if (bytecode != nullptr) {
 
 		is_constant = false;
 
@@ -338,7 +340,7 @@ void Eval::NodeEvaluator::evaluatePatternMatch(void* vpm) {
 	auto pm = (AST::PatternMatchNode*)vpm;
 
 	auto bundle = pm->bundle;
-	auto sym = bundle->firstSym();
+	auto sym = bundle->elements[0].cast<AST::HeaderSymbol>();
 
 	managed_vec<ptr_NodeEvaluator> child_evaluators;
 	
@@ -385,7 +387,7 @@ void Eval::NodeEvaluator::evaluatePatternMatch(void* vpm) {
 
 	AST::HeaderSymbol* match = nullptr;
 
-	for (auto header_sym : bundle->syms) {
+	for (auto header_sym : bundle->elements) {
 
 		auto rest = (AST::Restrictions*)getRestrictions(header_sym());
 
@@ -500,6 +502,98 @@ void Eval::NodeEvaluator::evaluatePatternMatch(void* vpm) {
 		auto rh = child_evaluators.size() > 1 ? child_evaluators[1] : nullptr;
 
 		evaluateBuiltInPatternMatch(match, lh, rh);
+
+	}
+
+}
+
+void Eval::NodeEvaluator::evaluateStructureMember(void* vsm) {
+
+	auto sm = (AST::StructureMemberNode*)vsm;
+
+	NodeEvaluator base_evaluator(sm->base(), exp, needs_val, false, false, stack_offset);
+
+	if (base_evaluator.eval_type == AST::Type::Unknown) { eval_type = AST::Type::Unknown; return; }
+
+	auto base_address = base_evaluator.address;
+
+	if (bytecode != nullptr) {
+
+		if (base_evaluator.bytecode != nullptr) bytecode->mergeWith(*base_evaluator.bytecode);
+
+		if (base_address.access_type % 16 > access::imm) {
+
+			auto new_base_address = Address::local(stack_offset + 2).setDataType(base_evaluator.eval_type);
+
+			bytecode->addInstruction(inst::mov, base_address, new_base_address);
+
+			base_address = new_base_address;
+
+		}
+
+	}
+
+	auto member_type = base_evaluator.eval_type;
+	auto* sinfo = &AST::Type(member_type).getStructureInstantiation();
+	auto header_sym = (AST::HeaderSymbol*)sinfo->sym;
+
+	auto last_member = sm->members[sm->members.size() - 1];
+
+	for (auto member : sm->members) {
+
+		if (!AST::Type(member_type).is(AST::Type::Structure)) {
+			
+			error.error = true;
+			error.info = "Structure member must originate from a structure type.";
+
+			error.sources.push_back(new PrintableString("Source expression:\n" + ((AST::Expression*)exp)->print(2, false)));
+
+			error.sources.push_back(new PrintableString("Problem origin:\n" + sm->print(2, false)));
+
+			error.sources.push_back(new PrintableString("Problematic member: " + member->elements[0]->var->oneLineDescription()));
+
+			error.sources.push_back(new PrintableString("Member origin type:\n" + AST::Type(member_type).print(2, false)));
+
+		}
+
+		AST::ptr_StructureMemberInfo member_info;
+		for (auto candidate : member->elements) if (candidate->owner == header_sym) { member_info = candidate; break; }
+
+		if (member_info == nullptr) {
+
+			error.error = true;
+			error.info = "Invalid structure member.";
+
+			error.sources.push_back(new PrintableString("Source expression:\n" + ((AST::Expression*)exp)->print(2, false)));
+
+			error.sources.push_back(new PrintableString("Problem origin:\n" + sm->print(2, false)));
+
+			error.sources.push_back(new PrintableString("Problematic member: " + member->elements[0]->var->oneLineDescription()));
+
+			error.sources.push_back(new PrintableString("Member origin type:\n" + AST::Type(member_type).print(2, false)));
+
+		}
+
+		auto base_type = member_type;
+		member_type = sinfo->element_types[member_info->var->index];
+		sinfo = &AST::Type(member_type).getStructureInstantiation();
+		header_sym = (AST::HeaderSymbol*)sinfo->sym;
+
+		if (bytecode != nullptr) {
+
+			auto member_address = ((member == last_member) ? address : Address::local(stack_offset + 2)).setDataType(member_type);
+
+			bytecode->addInstruction(
+				inst::mov, 
+				Address::heap8(base_address, Address::imm(member_info->var->index)).setDataType(member_type),
+				member_address
+			);
+
+			base_address = member_address;
+
+		}
+
+		if (member == last_member) setEvalType(member_type);
 
 	}
 
@@ -1133,7 +1227,7 @@ void Eval::NodeEvaluator::evaluateGeneralPatternMatch(void* vsym, AST::TypeList&
 
 	setEvalType(instantiation_info.return_type);
 
-	if (Evaluator::is_evaluating && needs_val) {
+	if (bytecode != nullptr) {
 		
 		for (int i = 0; i < child_evaluators.size(); i++) {
 

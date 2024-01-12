@@ -31,9 +31,18 @@ Eval::CodeEvaluator::CodeEvaluator(EvaluatorProgress* progress) : progress(progr
     else progress->needs_load = true;
 
     eval_type = progress->eval_type;
+    if (header_sym) is_structure = header_sym->ID == AST::SymbolID::Structure;
+    local_offset = 2 + (int)is_structure;
 
     bool init_success = progress->code_piece ? initFromCodePiece() : initFromCodeBody();
     if (!init_success) return;
+
+    if (is_structure) {
+
+        auto sinst = AST::StructureInstantiation{ progress->header_sym, progress->variable_types };
+        eval_type = AST::Type::fromStructure(sinst).ID;
+        
+    }
 
     auto arg_typelist_ID = AST::Type::fromTypeList(progress->argument_types).ID;
     
@@ -45,7 +54,7 @@ Eval::CodeEvaluator::CodeEvaluator(EvaluatorProgress* progress) : progress(progr
 
         if (header_sym) {
             
-            progress->bytecode->addInstruction(inst::mov, Address::imm(0).setDataType(eval_type), Address::local(2).setDataType(eval_type));
+            if (!is_structure) progress->bytecode->addInstruction(inst::mov, Address::imm(0).setDataType(eval_type), Address::local(2).setDataType(eval_type));
             progress->bytecode->addInstruction(inst::ret);
 
             auto& inst_info = header_sym->instantiations[arg_typelist_ID];
@@ -136,6 +145,12 @@ bool Eval::CodeEvaluator::initFromCodeBody() {
 
     }
 
+    if (is_structure) progress->bytecode->addInstruction(
+        inst::hinit,
+        Address::imm(progress->num_vars[1]),
+        Address::local(2)
+    );
+
     auto& pieces = code_body->code_pieces.pieces;
 
     for (int i = progress->progress; i < pieces.size(); i++) {
@@ -205,7 +220,7 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
         auto cast = (AST::CodePiece_PatternMatch*)piece;
         auto pm = cast->pattern_match;
 
-        Evaluator::cur_expression_info.lh_address = Address::local(progress->stack_offset + 2);
+        Evaluator::cur_expression_info.lh_address = Address::local(progress->stack_offset + local_offset);
         Evaluator::cur_expression_info.cur_progress = progress;
         Evaluator::cur_expression_info.stack_offset = progress->stack_offset;
 
@@ -269,8 +284,12 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
             progress->lh_address = Evaluator::cur_expression_info.lh_address;
 
         }
+
+        if (progress->lh_evaluated) Evaluator::cur_expression_info.stack_offset += 2;
+
+        if (is_structure) Evaluator::cur_expression_info.lh_address = Address::heap8(Address::local(2), Address::imm(lh_sym->index));
         
-        if (lh_sym) {
+        else if (lh_sym) {
 
             auto lh_offset = _var_offset(lh_sym);
             Evaluator::cur_expression_info.lh_address = 
@@ -508,7 +527,7 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
         auto cast = (AST::CodePiece_While*)piece;
         auto exp = cast->condition;
 
-        Evaluator::cur_expression_info.lh_address = Address::local(progress->stack_offset + 2);
+        Evaluator::cur_expression_info.lh_address = Address::local(progress->stack_offset + local_offset);
         Evaluator::cur_expression_info.cur_progress = progress;
         Evaluator::cur_expression_info.stack_offset = progress->stack_offset;
 
@@ -550,7 +569,7 @@ void Eval::CodeEvaluator::evaluate(AST::CodePiece* piece, bool inside_declaratio
         auto cast = (AST::CodePiece_If*)piece;
         auto exp = cast->condition;
 
-        Evaluator::cur_expression_info.lh_address = Address::local(progress->stack_offset + 2);
+        Evaluator::cur_expression_info.lh_address = Address::local(progress->stack_offset + local_offset);
         Evaluator::cur_expression_info.cur_progress = progress;
         Evaluator::cur_expression_info.stack_offset = progress->stack_offset;
 
