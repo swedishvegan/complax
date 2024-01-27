@@ -16,8 +16,8 @@ using Bool = bool;
 using Ascii = unsigned char;
 using String = managed_string;
 
-template <typename T> T stoi(String& s) { try { return (T)std::stoll(s.c_str()); } catch(...) { return (T)0; } }
-template <typename T> T stof(String& s) { try { return (T)std::stold(s.c_str()); } catch(...) { return (T)0; } }
+template <typename T> T stoi(String& s) { try { return (T)std::stoll(s); } catch(...) { return (T)0; } }
+template <typename T> T stof(String& s) { try { return (T)std::stold(s); } catch(...) { return (T)0; } }
 
 Decimal Eval::NodeEvaluator::getNumericValue() {
 
