@@ -36,7 +36,7 @@
 
 ## Introduction <a name="pt1"></a>
 
-**UPDATE: As of 1/9/2023, the Lax virtual machine now supports JIT compilation. Massive shoutout to the incredible [SLJIT library](https://github.com/zherczeg/sljit) for making this possible. JIT support is currently experimental and hasn't yet been tested on all platforms, so the VM still runs in interpreted mode by default. See [Using the Lax compiler and virtual machine](#pt2.3) for info on how to use the JIT.**
+**UPDATE: As of 1/9/2024, the Lax virtual machine now supports JIT compilation. Massive shoutout to the incredible [SLJIT library](https://github.com/zherczeg/sljit) for making this possible. JIT support is currently experimental and hasn't yet been tested on all platforms, so the VM still runs in interpreted mode by default. See [Using the Lax compiler and virtual machine](#pt2.3) for info on how to use the JIT.**
 
 **NOTE: Lax is currently still in development. I am making the project public in order to allow feedback, suggestions, and possibly outside contributions while the language is early in its development phase.**
 
